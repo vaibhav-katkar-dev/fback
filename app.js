@@ -118,6 +118,11 @@ function verifyToken(req, res, next) {
     });
 }
 
+
+app.get('/', (req, res) => {
+    res.send('Welcome to the Form API');
+});
+
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
