@@ -43,33 +43,38 @@ const UserSchema = new mongoose.Schema({
 const User = mongoose.model("User", UserSchema);
 
 // Signup API
+
 // Signup API
 app.post("/api/auth/signup", async (req, res) => {
     try {
         const { name, email, password } = req.body;
+
+        if (!name || !email || !password) {
+            return res.status(400).json({ msg: "All fields are required" });
+        }
 
         const existingUser = await User.findOne({ email });
         if (existingUser) return res.status(400).json({ msg: "Email already exists" });
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create user first (Mongo will give it an _id)
+        // Create user with hashed password
         const newUser = new User({ name, email, password: hashedPassword });
-        await newUser.save();
 
-        // Now generate a token using that user's _id
+        // Generate token
         const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET);
-
-        // Save token permanently in DB
         newUser.token = token;
+
+        // Save user
         await newUser.save();
 
-        res.json({ msg: "User registered successfully", token });
+        res.status(201).json({ msg: "User registered successfully", token });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ msg: "Server error" });
+        console.log("Signup error:", err.message);
+        res.status(500).json({ msg: "Server error", error: err.message });
     }
 });
+
 
 
 // Login API
