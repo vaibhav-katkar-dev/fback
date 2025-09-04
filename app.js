@@ -26,21 +26,25 @@ app.use("/api/forms", formRoutes);
 
 app.use("/api/templates", templateRoutes);
 
-
-
+// import googleAuthRoutes from "./googleAuth.js";
+const googleAuthRoutes = require("./googleAuth.js");
+app.use("/api", googleAuthRoutes);
+const User = require("./models/User.js");
 
 
 // User Schema
-const UserSchema = new mongoose.Schema({
-    name: String,
-    email: { type: String, unique: true },
-    password: String,
-    token: String // store permanent token here
+// const UserSchema = new mongoose.Schema({
+//     name: String,
+//     email: { type: String, unique: true },
+//     password: String,
+//     token: String, // store permanent token here
+//       avatar: String,
+//   provider: { type: String, default: "local" }, // "local" or "google"
 
 
-});
+// });
 
-const User = mongoose.model("User", UserSchema);
+// const User = mongoose.model("User", UserSchema);
 
 // Signup API
 
