@@ -4,19 +4,14 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-// const cors = require("cors");
+const cors = require("cors");
 require("dotenv").config();
 
 const app = express();
-// app.use(cors());
+app.use(cors());
 app.use(express.json());
 // in server.js / app.js
-const cors = require("cors");
-app.use(cors({
-  origin: "http://127.0.0.1:5501", // allow your HTML files
-  methods: ["GET", "POST"],
-  credentials: true
-}));
+
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI, {
