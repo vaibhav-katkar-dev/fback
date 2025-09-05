@@ -3,6 +3,8 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User"); // adjust path
 const { Resend } = require("resend");
+const nodemailer = require("nodemailer");
+
 
 const router = express.Router();
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -41,12 +43,29 @@ router.post("/forgot-password", async (req, res) => {
       <p><b>Note:</b> Link expires in 15 minutes.</p>
     `;
 
-    await resend.emails.send({
-      from: "onboarding@resend.dev",
-      to: user.email,
-      subject: "Password Reset Request",
-      html,
-    });
+    // await resend.emails.send({
+    //   from: "onboarding@resend.dev",
+    //   to: user.email,
+    //   subject: "Password Reset Request",
+    //   html,
+    // });
+
+
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_PASS, // App Password, not your real Gmail password
+  },
+});
+
+await transporter.sendMail({
+  from: process.env.GMAIL_USER,
+  to: user.email,
+  subject: "Password Reset Request",
+  html,
+});
 
     res.json({ message: "Password reset link sent to email" });
   } catch (err) {
