@@ -30,7 +30,7 @@ router.post("/forgot-password", async (req, res) => {
     console.log("Token saved to user:", user.email, hashedToken);
 
     // Create reset URL with query param for frontend HTML
-    const resetURL = `${process.env.CLIENT_URL}/Frontend/html/reset-password.html?token=${resetToken}`;
+    const resetURL = `${process.env.CLIENT_URL}/html/reset-password.html?token=${resetToken}`;
     console.log("Reset URL:", resetURL);
 
     // Send email via Resend
