@@ -63,16 +63,18 @@ router.post("/forgot-password", async (req, res) => {
 // ---------------------------
 // RESET PASSWORD - verify token & update
 // ---------------------------
-router.post("/reset-password", async (req, res) => {
+// ---------------------------
+// RESET PASSWORD - verify token & update
+// ---------------------------
+router.post("/reset-password/:token", async (req, res) => {
   try {
-    const { token } = req.query;
+    const { token } = req.params;
     const { password } = req.body;
 
     if (!token) return res.status(400).json({ message: "Token missing" });
 
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
-    // Find user with valid token
     const user = await User.findOne({
       resetPasswordToken: hashedToken,
       resetPasswordExpire: { $gt: Date.now() },
@@ -80,7 +82,6 @@ router.post("/reset-password", async (req, res) => {
 
     if (!user) return res.status(400).json({ message: "Invalid or expired token" });
 
-    // Update password
     user.password = await bcrypt.hash(password, 12);
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
@@ -92,5 +93,6 @@ router.post("/reset-password", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 module.exports = router;
