@@ -63,6 +63,7 @@ function verifyToken(req, res, next) {
 // Auth Routes
 // --------------------
 
+
 // ✅ Signup
 app.post("/api/auth/signup", async (req, res) => {
   try {
@@ -75,14 +76,20 @@ app.post("/api/auth/signup", async (req, res) => {
     if (existingUser) return res.status(400).json({ msg: "Email already exists" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ name, email, password: hashedPassword });
+
+    const newUser = new User({
+      name,
+      email,
+      password: hashedPassword,
+      provider: "local", // ✅ set provider
+    });
 
     await newUser.save();
 
     // Generate JWT with expiry
     const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
-    res.status(201).json({ msg: "User registered", token });
+    res.status(201).json({ msg: "User registered", token, user: { id: newUser._id, name: newUser.name, email: newUser.email, provider: newUser.provider } });
   } catch (err) {
     res.status(500).json({ msg: "Server error", error: err.message });
   }
@@ -92,8 +99,14 @@ app.post("/api/auth/signup", async (req, res) => {
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body;
+
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ msg: "Invalid email or password" });
+
+    // Prevent password login for Google-only users
+    if (user.provider === "google") {
+      return res.status(400).json({ msg: "Please login using Google" });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: "Invalid email or password" });
@@ -101,7 +114,7 @@ app.post("/api/auth/login", async (req, res) => {
     // Issue fresh JWT every login
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
-    res.json({ token });
+    res.json({ token, user: { id: user._id, name: user.name, email: user.email, provider: user.provider } });
   } catch (err) {
     res.status(500).json({ msg: "Server error" });
   }
@@ -109,15 +122,37 @@ app.post("/api/auth/login", async (req, res) => {
 
 // ✅ Get Current User
 app.get("/api/auth/me", verifyToken, async (req, res) => {
-  const user = await User.findById(req.user.id).select("-password");
-  res.json(user);
-});
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) return res.status(404).json({ msg: "User not found" });
 
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ msg: "Server error" });
+  }
+});
 // --------------------
 // Root Route
 // --------------------
 app.get("/", (req, res) => {
   res.send("Welcome to the Form API 🚀");
+});
+
+const path = require("path");
+
+// Set EJS
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
+
+// 📌 Route: Get all users
+app.get("/users", async (req, res) => {
+    try {
+        const users = await User.find();
+        res.render("profile", { users });
+    } catch (err) {
+        console.error("❌ Error fetching users:", err);
+        res.status(500).send("Error fetching users");
+    }
 });
 
 // --------------------

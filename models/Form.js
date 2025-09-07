@@ -8,11 +8,12 @@ const fieldSchema = new mongoose.Schema({
   options: [String]
 });
 
-const formSchema = new mongoose.Schema({
+const FormSchema = new mongoose.Schema({
   title: String,
-  description:Number,
+  description: String,
   fields: [fieldSchema],
-  token: String
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // ✅ store actual userId
+  createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model("Form", formSchema);
+module.exports = mongoose.model("Form", FormSchema);

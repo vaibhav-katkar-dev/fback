@@ -10,12 +10,13 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Example user model (replace with your actual Mongoose/User schema)
 const User = require("./models/User.js");
-
-// Login with Google
 router.post("/auth/google", async (req, res) => {
   try {
-    const { token } = req.body; // frontend sends Google token (id_token)
-    //console.log("Incoming request body:", req.body); // Debugging
+    const { token } = req.body; // frontend sends Google id_token
+
+    if (!token) {
+      return res.status(400).json({ success: false, message: "Token missing" });
+    }
 
     // 1. Verify token with Google
     const ticket = await client.verifyIdToken({
@@ -24,22 +25,33 @@ router.post("/auth/google", async (req, res) => {
     });
 
     const payload = ticket.getPayload();
-        //console.log("Google payload:", payload); // Debugging
-
     const { email, name, picture } = payload;
 
-    // 2. Find or create user
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Google payload missing email" });
+    }
+
+    // 2. Find user
     let user = await User.findOne({ email });
+
     if (!user) {
+      // 2a. Create if not exists
       user = await User.create({
         email,
         name,
         avatar: picture,
         password: null, // no password for Google login
+        provider: "google",
       });
+    } else {
+      // 2b. Update existing Google user (sync latest data)
+      user.name = name || user.name;
+      user.avatar = picture || user.avatar;
+      user.provider = "google"; // force provider update
+      await user.save();
     }
 
-    // 3. Create your own JWT
+    // 3. Create JWT
     const jwtToken = jwt.sign(
       { id: user._id, email: user.email },
       process.env.JWT_SECRET,
@@ -55,10 +67,11 @@ router.post("/auth/google", async (req, res) => {
         name: user.name,
         email: user.email,
         avatar: user.avatar,
+        provider: user.provider,
       },
     });
   } catch (err) {
-    console.error("Google Auth Error:", err);
+    console.error("Google Auth Error:", err.message);
     res.status(401).json({ success: false, message: "Invalid Google token" });
   }
 });
