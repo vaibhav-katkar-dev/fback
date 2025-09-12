@@ -110,7 +110,7 @@ router.put("/by-id/:id", async (req, res) => {
         title: data.title,
         description: data.description,
         fields: data.fields,
-        token: token ? jwt.verify(token, process.env.JWT_SECRET).id : existingForm.token,
+      userId:userId, // ✅ store userId instead of raw token
       },
       { new: true }
     );
