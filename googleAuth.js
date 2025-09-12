@@ -39,6 +39,7 @@ router.post("/auth/google", async (req, res) => {
       user = await User.create({
         email,
         name,
+        token,
         avatar: picture,
         password: null, // no password for Google login
         provider: "google",

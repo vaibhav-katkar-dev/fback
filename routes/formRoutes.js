@@ -4,22 +4,23 @@ const Form = require("../models/Form");
 const Response = require("../models/Response");
 const FormTemplate = require("../models/FormTemplate");
 const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 
 // POST - Save form
 router.post("/", async (req, res) => {
   try {
     console.log("Received form data:", req.body);
 
-    const { data, token } = req.body;
+    const { data, token,userId } = req.body;
     if (!token) return res.status(401).json({ message: "Token missing" });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
+console.log("dataa",userId);
     const newForm = new Form({
       title: data.title,
       description: data.description,
       fields: data.fields,
-      token: decoded.id, // ✅ store userId instead of raw token
+      userId:userId, // ✅ store userId instead of raw token
     });
 
     console.log("New form to save:", newForm);
@@ -33,16 +34,21 @@ router.post("/", async (req, res) => {
 });
 
 // GET - Fetch all forms for a token
-router.get("/by-token/:token", async (req, res) => {
+router.get("/by-token/:userId", async (req, res) => {
   try {
-    const token = req.params.token;
-    if (!token) return res.status(400).json({ msg: "Token is required" });
+    const userId= req.params.userId;
+    // if (!token) return res.status(400).json({ msg: "Token is required" });
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log("Decoded token:", decoded);
+    // const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // console.log("Decoded token:", decoded);
+    // const user = await User.find({ _id: decoded.id });
+
+      // console.log("Forms found:", user);
+
 
     // Find all forms belonging to this user
-    const forms = await Form.find({ token: decoded.id });
+const forms = await Form.find({ userId: userId});
+    console.log("Forms found:", forms);
     res.json(forms);
   } catch (err) {
     console.error("Token verification failed:", err.message);
@@ -76,7 +82,7 @@ router.get("/by-id/:id", async (req, res) => {
 // PUT /api/forms/by-id/:id
 router.put("/by-id/:id", async (req, res) => {
   try {
-    const { data, token } = req.body;
+    const { data, token,userId } = req.body;
     if (!data) return res.status(400).json({ message: "No data provided" });
 
     let existingForm = await Form.findOne({ _id: req.params.id });
@@ -88,7 +94,7 @@ router.put("/by-id/:id", async (req, res) => {
         title: data.title || existingForm.title,
         description: data.description || existingForm.description,
         fields: data.fields || existingForm.fields,
-        token: token ? jwt.verify(token, process.env.JWT_SECRET).id : existingForm.token,
+      userId:userId, // ✅ store userId instead of raw token
       });
 
       const savedForm = await newForm.save();
