@@ -10,9 +10,10 @@ const app = express();
 
 // ✅ CORS with whitelist
 app.use(cors({
-  origin: process.env.CLIENT_URL, // e.g. "https://frontend-roan-two-42.vercel.app"
-  credentials: true,
+  origin: ['https://form2chat.me', 'https://www.form2chat.me'], // dono allow
+  credentials: true
 }));
+
 
 app.use(express.json());
 
