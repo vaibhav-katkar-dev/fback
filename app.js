@@ -5,6 +5,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 require("dotenv").config();
+  const connectDB = require("./db");
 
 const app = express();
 
@@ -20,11 +21,14 @@ app.use(express.json());
 // --------------------
 // MongoDB connection
 // --------------------
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-}).then(() => console.log("✅ MongoDB connected"))
-  .catch((err) => console.error("❌ MongoDB error:", err));
+// mongoose.connect(process.env.MONGO_URI, {
+//   useNewUrlParser: true,
+//   useUnifiedTopology: true,
+// }).then(() => console.log("✅ MongoDB connected"))
+//   .catch((err) => console.error("❌ MongoDB error:", err));
+
+
+connectDB();
 
 // --------------------
 // Models & Routes
@@ -136,7 +140,7 @@ app.get("/api/auth/me", verifyToken, async (req, res) => {
 // Root Route
 // --------------------
 app.get("/", (req, res) => {
-  res.send("Welcome to the Form API 🚀");
+  res.send("Welcome to the form2chat.me API 🚀",`<br><a href="https://form2chat.me">Click Me</a>`);
 });
 
 const path = require("path");
