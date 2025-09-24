@@ -152,9 +152,16 @@ router.post("/:formId/responses", async (req, res) => {
 });
 
 // GET responses by formId
-router.get("/responses/by-id/:formId", async (req, res) => {
+router.get("/responses/by-id/:formId/:userId", async (req, res) => {
   try {
-    const { formId } = req.params;
+    const { formId ,userId } = req.params;
+
+        const letform = await Form.find({ _id: formId, userId:userId });
+
+        if(!letform){
+        return res.status(404).json({ message: "Form not found or access denied" });
+        }
+
     const responses = await Response.find({ formId });
     res.json({ responses });
   } catch (err) {
