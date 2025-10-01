@@ -36,7 +36,7 @@ router.post("/forgot-password", async (req, res) => {
 
     // Send email using Resend
     const emailResponse = await resend.emails.send({
-      from: 'your_verified_email@example.com', // must be verified in Resend
+      from: "Form2Chat <no-reply@form2chat.me>",
       to: user.email,
       subject: 'Password Reset Request',
       html: html,
