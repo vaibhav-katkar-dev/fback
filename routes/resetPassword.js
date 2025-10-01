@@ -6,28 +6,25 @@ const nodemailer = require("nodemailer");
 
 const router = express.Router();
 
-// ---------------------------
-// FORGOT PASSWORD - send email
-// ---------------------------
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY); // put your Resend API key in .env
+
 router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
 
     if (!user) {
-      // Always respond with same message for security
       return res.json({ message: "If an account exists, a reset link has been sent" });
     }
 
-    // Generate token & hash
     const resetToken = crypto.randomBytes(32).toString("hex");
     const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
 
     user.resetPasswordToken = hashedToken;
-    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
     await user.save();
 
-    // Create reset URL
     const resetURL = `${process.env.CLIENT_URL}/html/reset-password.html?token=${encodeURIComponent(resetToken)}`;
 
     const html = `
@@ -37,21 +34,15 @@ router.post("/forgot-password", async (req, res) => {
       <p><b>Note:</b> Link expires in 15 minutes.</p>
     `;
 
-    // Send email
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_PASS, // App password
-      },
+    // Send email using Resend
+    const emailResponse = await resend.emails.send({
+      from: 'your_verified_email@example.com', // must be verified in Resend
+      to: user.email,
+      subject: 'Password Reset Request',
+      html: html,
     });
 
-    await transporter.sendMail({
-      from: process.env.GMAIL_USER,
-      to: user.email,
-      subject: "Password Reset Request",
-      html,
-    });
+    console.log("Resend email response:", emailResponse);
 
     res.json({ message: "Password reset link sent ✅" });
   } catch (err) {
@@ -59,6 +50,7 @@ router.post("/forgot-password", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 // ---------------------------
 // RESET PASSWORD - verify token & update
