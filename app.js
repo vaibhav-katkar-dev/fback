@@ -28,7 +28,14 @@ app.use(express.json());
 //   .catch((err) => console.error("❌ MongoDB error:", err));
 
 
-connectDB();
+(async () => {
+  try {
+    await connectDB();
+  } catch (err) {
+    console.error("DB connection failed", err);
+    process.exit(1); // exit if DB can't connect
+  }
+})();
 
 // --------------------
 // Models & Routes
