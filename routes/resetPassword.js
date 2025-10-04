@@ -62,8 +62,10 @@ router.post("/reset-password/:token", async (req, res) => {
   try {
     const { token } = req.params;
     const { password } = req.body;
+    console.error("Reset password token:", token, "Password:", password);
 
     if (!token) return res.status(400).json({ message: "Token missing" });
+
 
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
@@ -78,6 +80,7 @@ router.post("/reset-password/:token", async (req, res) => {
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
     await user.save();
+    console.log("User found for reset:", user);
 
     res.json({ message: "Password reset successful ✅" });
   } catch (err) {
