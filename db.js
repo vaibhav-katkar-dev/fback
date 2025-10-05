@@ -1,24 +1,27 @@
 // db.js
 const mongoose = require("mongoose");
 
-let isConnected = false; // connection state
+let isConnected = false; // track connection status
 
 async function connectDB() {
-  if (isConnected) return;
+  // If already connected, reuse the connection
+  if (isConnected && mongoose.connection.readyState === 1) {
+    return;
+  }
 
   try {
-    const db = await mongoose.connect(process.env.MONGO_URI, {
+    const conn = await mongoose.connect(process.env.MONGO_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      maxPoolSize: 10, // improve concurrency
-      serverSelectionTimeoutMS: 5000, // faster fail if db unreachable
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
     });
 
-    isConnected = db.connections[0].readyState;
-    console.log("✅ MongoDB connected");
+    isConnected = conn.connections[0].readyState === 1;
+    console.log("✅ MongoDB connected:", conn.connection.host);
   } catch (err) {
-    console.error("❌ MongoDB connection error:", err);
-    throw err;
+    console.error("❌ MongoDB connection error:", err.message);
+    throw new Error("MongoDB connection failed");
   }
 }
 

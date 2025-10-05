@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const nodemailer = require("nodemailer");
+const connectDB = require("../db"); // import
 
 const router = express.Router();
 
@@ -60,8 +61,11 @@ router.post("/forgot-password", async (req, res) => {
 // ---------------------------
 router.post("/reset-password/:token", async (req, res) => {
   try {
+        await connectDB(); // 👈 ensure MongoDB connection before using models
+
     const { token } = req.params;
     const { password } = req.body;
+    
     console.error("Reset password token:", token, "Password:", password);
 
     if (!token) return res.status(400).json({ message: "Token missing" });
