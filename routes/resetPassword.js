@@ -59,17 +59,14 @@ router.post("/forgot-password", async (req, res) => {
 // ---------------------------
 // RESET PASSWORD - verify token & update
 // ---------------------------
-router.post("/reset-password/:token", async (req, res) => {
+router.post("/reset-password", async (req, res) => {
   try {
-        await connectDB(); // 👈 ensure MongoDB connection before using models
+    await connectDB(); // ensure MongoDB connection
 
-    const { token } = req.params;
-    const { password } = req.body;
-    
+    const { token, password } = req.body;
     console.error("Reset password token:", token, "Password:", password);
 
     if (!token) return res.status(400).json({ message: "Token missing" });
-
 
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
@@ -84,14 +81,15 @@ router.post("/reset-password/:token", async (req, res) => {
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
     await user.save();
-    console.log("User found for reset:", user);
 
+    console.log("User found for reset:", user);
     res.json({ message: "Password reset successful ✅" });
   } catch (err) {
     console.error("Reset password error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 
 module.exports = router;
