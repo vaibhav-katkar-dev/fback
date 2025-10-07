@@ -100,86 +100,80 @@ router.post("/reset-password", async (req, res) => {
 
 
 
+// =============================
+// ✅ SIGNUP (with email verification)
+// =============================
 router.post("/signup", async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // 🧩 Validate input
     if (!name || !email || !password) {
       return res.status(400).json({ msg: "All fields required" });
     }
 
-    // 🔍 Check existing user
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ msg: "Email already exists" });
     }
-// 🔐 Hash password
-const hashedPassword = await bcrypt.hash(password, 10);
 
-// 🧱 Create user (unverified initially)
-const newUser = new User({
-  name,
-  email,
-  password: hashedPassword,
-  provider: "local",
-  isVerified: false,
-});
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-// 🎟️ Create verification token BEFORE saving
-const verifyToken = crypto.randomBytes(32).toString("hex");
-const hashedToken = crypto.createHash("sha256").update(verifyToken).digest("hex");
+    // Create new user
+    const newUser = new User({
+      name,
+      email,
+      password: hashedPassword,
+      provider: "local",
+      isVerified: false,
+    });
 
-newUser.emailVerifyToken = hashedToken;
-newUser.emailVerifyExpire = Date.now() + 24 * 60 * 60 * 1000; // 24h
+    // Generate verification token before saving
+    const verifyToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(verifyToken).digest("hex");
 
-await newUser.save(); // ✅ Only save once — everything included
+    newUser.emailVerifyToken = hashedToken;
+    newUser.emailVerifyExpire = Date.now() + 24 * 60 * 60 * 1000; // 24h
+    await newUser.save();
 
-// 🔗 Email verification link
-const verifyURL = `${process.env.CLIENT_URL}/email-verified.html?token=${encodeURIComponent(verifyToken)}`;
+    // Verification URL → must go to frontend page
+    const verifyURL = `${process.env.CLIENT_URL}/email-verified.html?token=${encodeURIComponent(
+      verifyToken
+    )}`;
 
-const html = `
-  <h2>Email Verification</h2>
-  <p>Hi ${name},</p>
-  <p>Thanks for signing up! Please verify your email by clicking the link below:</p>
-  <a href="${verifyURL}" target="_blank">${verifyURL}</a>
-  <p>This link will expire in 24 hours.</p>
-`;
+    const html = `
+      <h2>Email Verification</h2>
+      <p>Hi ${name},</p>
+      <p>Thanks for signing up! Please verify your email by clicking the link below:</p>
+      <a href="${verifyURL}" target="_blank">${verifyURL}</a>
+      <p>This link will expire in 24 hours.</p>
+    `;
 
-await resend.emails.send({
-  from: "Form2Chat <no-reply@form2chat.me>",
-  to: email,
-  subject: "Verify your email address",
-  html,
-});
+    await resend.emails.send({
+      from: "Form2Chat <no-reply@form2chat.me>",
+      to: email,
+      subject: "Verify your email address",
+      html,
+    });
 
-res.status(201).json({
-  msg: "Signup successful! Please check your email to verify your account.",
-});
-
+    res.status(201).json({
+      msg: "Signup successful! Please check your email to verify your account.",
+    });
   } catch (err) {
     console.error("Signup error:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
   }
 });
 
-
-
 // =============================
-// ✅ VERIFY EMAIL ROUTE
-// =============================
-// =============================
-// ✅ VERIFY EMAIL ROUTE (POST)
+// ✅ VERIFY EMAIL
 // =============================
 router.post("/verify-email", async (req, res) => {
   try {
     const { token } = req.body;
     if (!token) return res.status(400).json({ success: false, msg: "Missing token" });
 
-    // 🔑 Hash token to match DB
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
-    // 🔍 Find valid user
     const user = await User.findOne({
       emailVerifyToken: hashedToken,
       emailVerifyExpire: { $gt: Date.now() },
@@ -189,27 +183,26 @@ router.post("/verify-email", async (req, res) => {
       return res.status(400).json({ success: false, msg: "Invalid or expired verification link" });
     }
 
-    // ✅ Verify user
+    if (user.isVerified) {
+      return res.status(200).json({ success: true, msg: "Email already verified" });
+    }
+
     user.isVerified = true;
     user.emailVerifyToken = undefined;
     user.emailVerifyExpire = undefined;
     await user.save();
 
-     token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-res.json({ success: true, msg: "Email verified successfully", token });
-
+    const jwtToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    res.json({ success: true, msg: "Email verified successfully", token: jwtToken });
   } catch (err) {
     console.error("Email verification error:", err);
     res.status(500).json({ success: false, msg: "Server error" });
   }
 });
 
-
-
-
-
-
-// ✅ LOGIN ROUTE/
+// =============================
+// ✅ LOGIN (smart auto-resend verification link)
+// =============================
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -217,7 +210,6 @@ router.post("/login", async (req, res) => {
 
     if (!user) return res.status(400).json({ msg: "Invalid email or password" });
 
-    // Prevent password login for Google-only users
     if (user.provider === "google") {
       return res.status(400).json({ msg: "Please login using Google" });
     }
@@ -225,9 +217,7 @@ router.post("/login", async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: "Invalid email or password" });
 
-    // ===========================
-    // 🛑 EMAIL NOT VERIFIED — smart auto resend with cooldown
-    // ===========================
+    // 🛑 Handle unverified users with rate-limited resend
     if (!user.isVerified) {
       const cooldownMinutes = 10;
       const now = Date.now();
@@ -236,7 +226,6 @@ router.post("/login", async (req, res) => {
         !user.lastVerificationEmailSent ||
         now - user.lastVerificationEmailSent.getTime() > cooldownMinutes * 60 * 1000
       ) {
-        // ✅ Can resend
         const verifyToken = crypto.randomBytes(32).toString("hex");
         const hashedToken = crypto.createHash("sha256").update(verifyToken).digest("hex");
 
@@ -274,7 +263,6 @@ router.post("/login", async (req, res) => {
           resent: true,
         });
       } else {
-        // 🧊 Rate limit active
         const remaining = Math.ceil(
           (cooldownMinutes * 60 * 1000 - (now - user.lastVerificationEmailSent.getTime())) / 60000
         );
@@ -285,7 +273,7 @@ router.post("/login", async (req, res) => {
       }
     }
 
-    // ✅ If verified — issue token
+    // ✅ If verified, issue token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
     res.json({
@@ -302,6 +290,4 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 });
-// #----------------------------------------------------------------
-
 module.exports = router;
