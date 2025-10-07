@@ -28,14 +28,20 @@ app.use(express.json());
 //   .catch((err) => console.error("❌ MongoDB error:", err));
 
 
-(async () => {
+// 
+
+async function connectWithRetry() {
   try {
     await connectDB();
+    console.log("✅ MongoDB connected successfully");
   } catch (err) {
-    console.error("DB connection failed", err);
-    process.exit(1); // exit if DB can't connect
+    console.error("❌ MongoDB connection failed. Retrying in 5 seconds...", err.message);
+    setTimeout(connectWithRetry, 5000);
   }
-})();
+}
+connectWithRetry();
+
+
 
 // --------------------
 // Models & Routes
