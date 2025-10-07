@@ -25,7 +25,8 @@ router.post("/auth/google", async (req, res) => {
     });
 
     const payload = ticket.getPayload();
-    const { email, name, picture } = payload;
+     // ✅ FIX: destructure email_verified here
+    const { email, name, picture, email_verified } = payload;
 
     if (!email) {
       return res.status(400).json({ success: false, message: "Google payload missing email" });
