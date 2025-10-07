@@ -197,7 +197,7 @@ router.post("/verify-email", async (req, res) => {
     user.emailVerifyExpire = undefined;
     await user.save();
 
-    res.json({ success: true, msg: "Email verified successfully" });
+    res.json({ success: true, msg: "Email verified successfully" , autoLogin: true});
   } catch (err) {
     console.error("Email verification error:", err);
     res.status(500).json({ success: false, msg: "Server error" });
@@ -205,6 +205,103 @@ router.post("/verify-email", async (req, res) => {
 });
 
 
+
+
+
+
+// ✅ LOGIN ROUTE/
+app.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) return res.status(400).json({ msg: "Invalid email or password" });
+
+    // Prevent password login for Google-only users
+    if (user.provider === "google") {
+      return res.status(400).json({ msg: "Please login using Google" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ msg: "Invalid email or password" });
+
+    // ===========================
+    // 🛑 EMAIL NOT VERIFIED — smart auto resend with cooldown
+    // ===========================
+    if (!user.isVerified) {
+      const cooldownMinutes = 10;
+      const now = Date.now();
+
+      if (
+        !user.lastVerificationEmailSent ||
+        now - user.lastVerificationEmailSent.getTime() > cooldownMinutes * 60 * 1000
+      ) {
+        // ✅ Can resend
+        const verifyToken = crypto.randomBytes(32).toString("hex");
+        const hashedToken = crypto.createHash("sha256").update(verifyToken).digest("hex");
+
+        user.emailVerifyToken = hashedToken;
+        user.emailVerifyExpire = Date.now() + 15 * 60 * 1000; // 15 min
+        user.lastVerificationEmailSent = new Date();
+        await user.save();
+
+        const verifyURL = `${process.env.CLIENT_URL}/email-verified.html?token=${encodeURIComponent(
+          verifyToken
+        )}`;
+
+        const html = `
+          <h2>Verify Your Email</h2>
+          <p>Hello ${user.name || "there"},</p>
+          <p>You tried to log in, but your email isn't verified yet.</p>
+          <p>Click below to confirm your email:</p>
+          <a href="${verifyURL}" style="background:#3b82f6;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;">Verify Email</a>
+          <p>This link expires in 15 minutes.</p>
+        `;
+
+        try {
+          await resend.emails.send({
+            from: "Form2Chat <no-reply@form2chat.me>",
+            to: user.email,
+            subject: "Verify Your Email - Form2Chat",
+            html,
+          });
+        } catch (emailErr) {
+          console.error("Resend email failed:", emailErr);
+        }
+
+        return res.status(403).json({
+          msg: "Please verify your email. A new verification link has been sent.",
+          resent: true,
+        });
+      } else {
+        // 🧊 Rate limit active
+        const remaining = Math.ceil(
+          (cooldownMinutes * 60 * 1000 - (now - user.lastVerificationEmailSent.getTime())) / 60000
+        );
+        return res.status(429).json({
+          msg: `Your email is not verified. Please wait ${remaining} minute(s) before requesting another verification link.`,
+          resent: false,
+        });
+      }
+    }
+
+    // ✅ If verified — issue token
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        provider: user.provider,
+      },
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
 // #----------------------------------------------------------------
 
 module.exports = router;
