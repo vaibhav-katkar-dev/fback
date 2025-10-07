@@ -114,51 +114,49 @@ router.post("/signup", async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ msg: "Email already exists" });
     }
+// 🔐 Hash password
+const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 🔐 Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+// 🧱 Create user (unverified initially)
+const newUser = new User({
+  name,
+  email,
+  password: hashedPassword,
+  provider: "local",
+  isVerified: false,
+});
 
-    // 🧱 Create user (unverified initially)
-    const newUser = new User({
-      name,
-      email,
-      password: hashedPassword,
-      provider: "local",
-      isVerified: false,
-    });
-    await newUser.save();
+// 🎟️ Create verification token BEFORE saving
+const verifyToken = crypto.randomBytes(32).toString("hex");
+const hashedToken = crypto.createHash("sha256").update(verifyToken).digest("hex");
 
-    // 🎟️ Create verification token
-    const verifyToken = crypto.randomBytes(32).toString("hex");
-    const hashedToken = crypto.createHash("sha256").update(verifyToken).digest("hex");
+newUser.emailVerifyToken = hashedToken;
+newUser.emailVerifyExpire = Date.now() + 24 * 60 * 60 * 1000; // 24h
 
-    newUser.emailVerifyToken = hashedToken;
-    newUser.emailVerifyExpire = Date.now() + 24 * 60 * 60 * 1000; // 24h
-    await newUser.save();
+await newUser.save(); // ✅ Only save once — everything included
 
-    // 🔗 Email verification link
+// 🔗 Email verification link
 const verifyURL = `${process.env.CLIENT_URL}/email-verified.html?token=${encodeURIComponent(verifyToken)}`;
 
-    const html = `
-      <h2>Email Verification</h2>
-      <p>Hi ${name},</p>
-      <p>Thanks for signing up! Please verify your email by clicking the link below:</p>
-      <a href="${verifyURL}" target="_blank">${verifyURL}</a>
-      <p>This link will expire in 24 hours.</p>
-    `;
+const html = `
+  <h2>Email Verification</h2>
+  <p>Hi ${name},</p>
+  <p>Thanks for signing up! Please verify your email by clicking the link below:</p>
+  <a href="${verifyURL}" target="_blank">${verifyURL}</a>
+  <p>This link will expire in 24 hours.</p>
+`;
 
-    // 📧 Send email via Resend
-    await resend.emails.send({
-      from: "Form2Chat <no-reply@form2chat.me>",
-      to: email,
-      subject: "Verify your email address",
-      html: html,
-    });
+await resend.emails.send({
+  from: "Form2Chat <no-reply@form2chat.me>",
+  to: email,
+  subject: "Verify your email address",
+  html,
+});
 
-    // ✅ Response to frontend
-    res.status(201).json({
-      msg: "Signup successful! Please check your email to verify your account.",
-    });
+res.status(201).json({
+  msg: "Signup successful! Please check your email to verify your account.",
+});
+
   } catch (err) {
     console.error("Signup error:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
@@ -197,7 +195,9 @@ router.post("/verify-email", async (req, res) => {
     user.emailVerifyExpire = undefined;
     await user.save();
 
-    res.json({ success: true, msg: "Email verified successfully" , autoLogin: true});
+     token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+res.json({ success: true, msg: "Email verified successfully", token });
+
   } catch (err) {
     console.error("Email verification error:", err);
     res.status(500).json({ success: false, msg: "Server error" });
