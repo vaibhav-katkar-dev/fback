@@ -210,7 +210,7 @@ router.post("/verify-email", async (req, res) => {
 
 
 // ✅ LOGIN ROUTE/
-app.post("/login", async (req, res) => {
+router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
