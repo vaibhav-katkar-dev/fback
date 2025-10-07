@@ -183,6 +183,17 @@ app.listen(PORT, () => {
 
 
 
+// Handle async errors that aren't caught anywhere
+process.on("unhandledRejection", (err) => {
+  console.error("❌ Unhandled Promise Rejection:", err);
+  // Optional: give time for logs before exit
+  setTimeout(() => process.exit(1), 1000);
+});
 
+// Handle unexpected exceptions
+process.on("uncaughtException", (err) => {
+  console.error("💥 Uncaught Exception:", err);
+  setTimeout(() => process.exit(1), 1000);
+});
 
 
