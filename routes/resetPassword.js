@@ -137,7 +137,7 @@ router.post("/signup", async (req, res) => {
     await newUser.save();
 
     // 🔗 Email verification link
-    const verifyURL = `${process.env.CLIENT_URL}/api/auth/verify-email?token=${encodeURIComponent(verifyToken)}`;
+const verifyURL = `${process.env.CLIENT_URL}/email-verified.html?token=${encodeURIComponent(verifyToken)}`;
 
     const html = `
       <h2>Email Verification</h2>
