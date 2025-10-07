@@ -1,20 +1,40 @@
+// routes/resetPassword.js
 const express = require("express");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const User = require("../models/User");
-const nodemailer = require("nodemailer");
-const connectDB = require("../db"); // import
+const connectDB = require("../db"); // ensure your db.js exports a connect function
+const { Resend } = require("resend");
 
 const router = express.Router();
 
-const { Resend } = require('resend');
-const resend = new Resend(process.env.RESEND_API_KEY); // put your Resend API key in .env
+// ensure router can parse JSON (helps in serverless / subrouter contexts)
+router.use(express.json());
 
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// optional: ensure DB connected once (if your app entry already connects, this is safe)
+(async () => {
+  try {
+    await connectDB();
+  } catch (err) {
+    console.error("DB connection failed:", err);
+    // don't exit here; let the app continue and handle connection errors elsewhere
+  }
+})();
+
+// ----------------------
+// FORGOT PASSWORD
+// ----------------------
 router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email required" });
+
     const user = await User.findOne({ email });
 
+    // respond generically to avoid leaking account existence
     if (!user) {
       return res.json({ message: "If an account exists, a reset link has been sent" });
     }
@@ -23,10 +43,12 @@ router.post("/forgot-password", async (req, res) => {
     const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
 
     user.resetPasswordToken = hashedToken;
-    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
     await user.save();
 
-    const resetURL = `${process.env.CLIENT_URL}/html/reset-password.html?token=${encodeURIComponent(resetToken)}`;
+    const resetURL = `${process.env.CLIENT_URL}/html/reset-password.html?token=${encodeURIComponent(
+      resetToken
+    )}`;
 
     const html = `
       <h2>Password Reset</h2>
@@ -35,15 +57,12 @@ router.post("/forgot-password", async (req, res) => {
       <p><b>Note:</b> Link expires in 15 minutes.</p>
     `;
 
-    // Send email using Resend
-    const emailResponse = await resend.emails.send({
+    await resend.emails.send({
       from: "Form2Chat <no-reply@form2chat.me>",
       to: user.email,
-      subject: 'Password Reset Request',
-      html: html,
+      subject: "Password Reset Request",
+      html,
     });
-
-    console.log("Resend email response:", emailResponse);
 
     res.json({ message: "Password reset link sent ✅" });
   } catch (err) {
@@ -52,21 +71,13 @@ router.post("/forgot-password", async (req, res) => {
   }
 });
 
-
-// ---------------------------
-// RESET PASSWORD - verify token & update
-// ---------------------------
-// ---------------------------
-// RESET PASSWORD - verify token & update
-// ---------------------------
+// ----------------------
+// RESET PASSWORD - update
+// ----------------------
 router.post("/reset-password", async (req, res) => {
   try {
-    await connectDB(); // ensure MongoDB connection
-
     const { token, password } = req.body;
-    console.error("Reset password token:", token, "Password:", password);
-
-    if (!token) return res.status(400).json({ message: "Token missing" });
+    if (!token || !password) return res.status(400).json({ message: "Token and password required" });
 
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
@@ -82,7 +93,6 @@ router.post("/reset-password", async (req, res) => {
     user.resetPasswordExpire = undefined;
     await user.save();
 
-    console.log("User found for reset:", user);
     res.json({ message: "Password reset successful ✅" });
   } catch (err) {
     console.error("Reset password error:", err);
@@ -90,35 +100,19 @@ router.post("/reset-password", async (req, res) => {
   }
 });
 
-
-
-
-
-
-// #----------------------------------------------------------------
-// Forgot Route-
-
-
-
-// =============================
-// ✅ SIGNUP (with email verification)
-// =============================
+// ----------------------
+// SIGNUP (with verification)
+// ----------------------
 router.post("/signup", async (req, res) => {
   try {
     const { name, email, password } = req.body;
-
-    if (!name || !email || !password) {
-      return res.status(400).json({ msg: "All fields required" });
-    }
+    if (!name || !email || !password) return res.status(400).json({ msg: "All fields required" });
 
     const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ msg: "Email already exists" });
-    }
+    if (existingUser) return res.status(400).json({ msg: "Email already exists" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create new user
     const newUser = new User({
       name,
       email,
@@ -127,15 +121,14 @@ router.post("/signup", async (req, res) => {
       isVerified: false,
     });
 
-    // Generate verification token before saving
+    // Generate verification token (raw to send in email; hashed stored)
     const verifyToken = crypto.randomBytes(32).toString("hex");
     const hashedToken = crypto.createHash("sha256").update(verifyToken).digest("hex");
 
     newUser.emailVerifyToken = hashedToken;
-    newUser.emailVerifyExpire = Date.now() + 24 * 60 * 60 * 1000; // 24h
+    newUser.emailVerifyExpire = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
     await newUser.save();
 
-    // Verification URL → must go to frontend page
     const verifyURL = `${process.env.CLIENT_URL}/email-verified.html?token=${encodeURIComponent(
       verifyToken
     )}`;
@@ -155,18 +148,17 @@ router.post("/signup", async (req, res) => {
       html,
     });
 
-    res.status(201).json({
-      msg: "Signup successful! Please check your email to verify your account.",
-    });
+    // do not send sensitive data in response
+    res.status(201).json({ msg: "Signup successful! Please check your email to verify your account." });
   } catch (err) {
     console.error("Signup error:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
   }
 });
 
-// =============================
-// ✅ VERIFY EMAIL
-// =============================
+// ----------------------
+// VERIFY EMAIL
+// ----------------------
 router.post("/verify-email", async (req, res) => {
   try {
     const { token } = req.body;
@@ -193,6 +185,7 @@ router.post("/verify-email", async (req, res) => {
     await user.save();
 
     const jwtToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
     res.json({ success: true, msg: "Email verified successfully", token: jwtToken });
   } catch (err) {
     console.error("Email verification error:", err);
@@ -200,72 +193,58 @@ router.post("/verify-email", async (req, res) => {
   }
 });
 
-// =============================
-// ✅ LOGIN (smart auto-resend verification link)
-// =============================
+// ----------------------
+// LOGIN (with auto-resend & cooldown)
+// ----------------------
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    if (!email || !password) return res.status(400).json({ msg: "Email and password required" });
 
+    const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ msg: "Invalid email or password" });
 
-    if (user.provider === "google") {
-      return res.status(400).json({ msg: "Please login using Google" });
-    }
+    if (user.provider === "google") return res.status(400).json({ msg: "Please login using Google" });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: "Invalid email or password" });
 
-    // 🛑 Handle unverified users with rate-limited resend
     if (!user.isVerified) {
       const cooldownMinutes = 10;
       const now = Date.now();
 
-      if (
-        !user.lastVerificationEmailSent ||
-        now - user.lastVerificationEmailSent.getTime() > cooldownMinutes * 60 * 1000
-      ) {
+      if (!user.lastVerificationEmailSent || now - user.lastVerificationEmailSent.getTime() > cooldownMinutes * 60 * 1000) {
         const verifyToken = crypto.randomBytes(32).toString("hex");
         const hashedToken = crypto.createHash("sha256").update(verifyToken).digest("hex");
 
         user.emailVerifyToken = hashedToken;
-        user.emailVerifyExpire = Date.now() + 15 * 60 * 1000; // 15 min
+        user.emailVerifyExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
         user.lastVerificationEmailSent = new Date();
         await user.save();
 
-        const verifyURL = `${process.env.CLIENT_URL}/email-verified.html?token=${encodeURIComponent(
-          verifyToken
-        )}`;
+        const verifyURL = `${process.env.CLIENT_URL}/email-verified.html?token=${encodeURIComponent(verifyToken)}`;
 
         const html = `
           <h2>Verify Your Email</h2>
           <p>Hello ${user.name || "there"},</p>
           <p>You tried to log in, but your email isn't verified yet.</p>
-          <p>Click below to confirm your email:</p>
           <a href="${verifyURL}" style="background:#3b82f6;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;">Verify Email</a>
           <p>This link expires in 15 minutes.</p>
         `;
 
-        try {
-          await resend.emails.send({
-            from: "Form2Chat <no-reply@form2chat.me>",
-            to: user.email,
-            subject: "Verify Your Email - Form2Chat",
-            html,
-          });
-        } catch (emailErr) {
-          console.error("Resend email failed:", emailErr);
-        }
+        await resend.emails.send({
+          from: "Form2Chat <no-reply@form2chat.me>",
+          to: user.email,
+          subject: "Verify Your Email - Form2Chat",
+          html,
+        });
 
         return res.status(403).json({
           msg: "Please verify your email. A new verification link has been sent.",
           resent: true,
         });
       } else {
-        const remaining = Math.ceil(
-          (cooldownMinutes * 60 * 1000 - (now - user.lastVerificationEmailSent.getTime())) / 60000
-        );
+        const remaining = Math.ceil((cooldownMinutes * 60 * 1000 - (now - user.lastVerificationEmailSent.getTime())) / 60000);
         return res.status(429).json({
           msg: `Your email is not verified. Please wait ${remaining} minute(s) before requesting another verification link.`,
           resent: false,
@@ -273,9 +252,8 @@ router.post("/login", async (req, res) => {
       }
     }
 
-    // ✅ If verified, issue token
+    // verified => issue token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-
     res.json({
       token,
       user: {
@@ -290,4 +268,5 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 });
+
 module.exports = router;
