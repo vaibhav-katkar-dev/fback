@@ -43,12 +43,15 @@ router.post("/auth/google", async (req, res) => {
         avatar: picture,
         password: null, // no password for Google login
         provider: "google",
+        isVerified: email_verified || true, // ✅ mark verified
+
       });
     } else {
       // 2b. Update existing Google user (sync latest data)
       user.name = name || user.name;
       user.avatar = picture || user.avatar;
       user.provider = "google"; // force provider update
+      user.isVerified = true; // ✅ ensure verified stays true
       await user.save();
     }
 
