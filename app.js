@@ -76,36 +76,36 @@ function verifyToken(req, res, next) {
 // --------------------
 
 
-// ✅ Signup
-app.post("/api/auth/signup", async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
-    if (!name || !email || !password) {
-      return res.status(400).json({ msg: "All fields required" });
-    }
+// // ✅ Signup
+// app.post("/api/auth/signup", async (req, res) => {
+//   try {
+//     const { name, email, password } = req.body;
+//     if (!name || !email || !password) {
+//       return res.status(400).json({ msg: "All fields required" });
+//     }
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ msg: "Email already exists" });
+//     const existingUser = await User.findOne({ email });
+//     if (existingUser) return res.status(400).json({ msg: "Email already exists" });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+//     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = new User({
-      name,
-      email,
-      password: hashedPassword,
-      provider: "local", // ✅ set provider
-    });
+//     const newUser = new User({
+//       name,
+//       email,
+//       password: hashedPassword,
+//       provider: "local", // ✅ set provider
+//     });
 
-    await newUser.save();
+//     await newUser.save();
 
-    // Generate JWT with expiry
-    const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+//     // Generate JWT with expiry
+//     const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
-    res.status(201).json({ msg: "User registered", token, user: { id: newUser._id, name: newUser.name, email: newUser.email, provider: newUser.provider } });
-  } catch (err) {
-    res.status(500).json({ msg: "Server error", error: err.message });
-  }
-});
+//     res.status(201).json({ msg: "User registered", token, user: { id: newUser._id, name: newUser.name, email: newUser.email, provider: newUser.provider } });
+//   } catch (err) {
+//     res.status(500).json({ msg: "Server error", error: err.message });
+//   }
+// });
 
 // ✅ Login
 app.post("/api/auth/login", async (req, res) => {
@@ -123,8 +123,14 @@ app.post("/api/auth/login", async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: "Invalid email or password" });
 
+    if (!user.isVerified) {
+  return res.status(403).json({ msg: "Please verify your email before logging in." });
+}
+
+
     // Issue fresh JWT every login
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    
 
     res.json({ token, user: { id: user._id, name: user.name, email: user.email, provider: user.provider } });
   } catch (err) {
