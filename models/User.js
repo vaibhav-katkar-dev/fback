@@ -12,6 +12,10 @@ const UserSchema = new mongoose.Schema({
     resetPasswordToken: String,
     resetPasswordExpire: Date,
      isVerified: { type: Boolean, default: false },
+
+     
+  // 🔥 Add this field to track rate limit
+  lastVerificationEmailSent: { type: Date, default: null },
 });
 
 module.exports = mongoose.model("User", UserSchema);

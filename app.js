@@ -107,33 +107,69 @@ function verifyToken(req, res, next) {
 //   }
 // });
 
-// ✅ Login
-app.post("/api/auth/login", async (req, res) => {
+// =============================
+// ✅ RESEND VERIFICATION EMAIL (with rate limit)
+// =============================
+router.post("/resend-verification", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ msg: "Email is required" });
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ msg: "Invalid email or password" });
+    if (!user) return res.status(404).json({ msg: "User not found" });
 
-    // Prevent password login for Google-only users
-    if (user.provider === "google") {
-      return res.status(400).json({ msg: "Please login using Google" });
+    // ✅ If already verified, no need to resend
+    if (user.isVerified) {
+      return res.status(400).json({ msg: "Email already verified" });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ msg: "Invalid email or password" });
+    // 🧠 Rate limit check (10 minutes)
+    const cooldownMinutes = 10;
+    const now = Date.now();
+    if (
+      user.lastVerificationEmailSent &&
+      now - user.lastVerificationEmailSent.getTime() < cooldownMinutes * 60 * 1000
+    ) {
+      const remaining = Math.ceil(
+        (cooldownMinutes * 60 * 1000 - (now - user.lastVerificationEmailSent.getTime())) / 60000
+      );
+      return res.status(429).json({
+        msg: `Please wait ${remaining} minute(s) before requesting another verification email.`,
+      });
+    }
 
-    if (!user.isVerified) {
-  return res.status(403).json({ msg: "Please verify your email before logging in." });
-}
+    // Generate new token
+    const verifyToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(verifyToken).digest("hex");
 
+    user.emailVerifyToken = hashedToken;
+    user.emailVerifyExpire = Date.now() + 15 * 60 * 1000; // 15 minutes expiry
+    user.lastVerificationEmailSent = new Date(); // ✅ record send time
+    await user.save();
 
-    // Issue fresh JWT every login
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-    
+    // Build verification link
+    const verifyURL = `${process.env.CLIENT_URL}/email-verified.html?token=${encodeURIComponent(
+      verifyToken
+    )}`;
 
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email, provider: user.provider } });
+    const html = `
+      <h2>Verify Your Email</h2>
+      <p>Hello ${user.name || "there"},</p>
+      <p>Click below to confirm your email address:</p>
+      <a href="${verifyURL}" style="background:#3b82f6;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;">Verify Email</a>
+      <p>This link expires in 15 minutes.</p>
+    `;
+
+    await resend.emails.send({
+      from: "Form2Chat <no-reply@form2chat.me>",
+      to: user.email,
+      subject: "Verify Your Email - Form2Chat",
+      html,
+    });
+
+    res.json({ msg: "Verification email resent successfully ✅" });
   } catch (err) {
+    console.error("Resend verification error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 });
