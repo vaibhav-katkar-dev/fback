@@ -170,10 +170,13 @@ router.post("/signup", async (req, res) => {
 // =============================
 // ✅ VERIFY EMAIL ROUTE
 // =============================
-router.get("/verify-email", async (req, res) => {
+// =============================
+// ✅ VERIFY EMAIL ROUTE (POST)
+// =============================
+router.post("/verify-email", async (req, res) => {
   try {
-    const { token } = req.query;
-    if (!token) return res.status(400).send("Missing token");
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ success: false, msg: "Missing token" });
 
     // 🔑 Hash token to match DB
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
@@ -184,7 +187,9 @@ router.get("/verify-email", async (req, res) => {
       emailVerifyExpire: { $gt: Date.now() },
     });
 
-    if (!user) return res.status(400).send("Invalid or expired verification link");
+    if (!user) {
+      return res.status(400).json({ success: false, msg: "Invalid or expired verification link" });
+    }
 
     // ✅ Verify user
     user.isVerified = true;
@@ -192,11 +197,10 @@ router.get("/verify-email", async (req, res) => {
     user.emailVerifyExpire = undefined;
     await user.save();
 
-    // Redirect to frontend confirmation page (optional)
-    return res.redirect(`${process.env.CLIENT_URL}/html/email-verified.html`);
+    res.json({ success: true, msg: "Email verified successfully" });
   } catch (err) {
     console.error("Email verification error:", err);
-    res.status(500).send("Server error");
+    res.status(500).json({ success: false, msg: "Server error" });
   }
 });
 
