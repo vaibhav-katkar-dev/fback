@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
+
 require("dotenv").config();
   const connectDB = require("./db");
 
@@ -11,7 +12,7 @@ const app = express();
 
 // ✅ CORS with whitelist
 app.use(cors({
-  origin: ['https://form2chat.me', 'https://www.form2chat.me'], // dono allow
+  origin: ['https://form2chat.me', 'https://www.form2chat.me','http://127.0.0.1:5501'], // dono allow
   credentials: true
 }));
 
@@ -51,11 +52,14 @@ const formRoutes = require("./routes/formRoutes");
 const templateRoutes = require("./routes/templates");
 const googleAuthRoutes = require("./googleAuth");
 const resetRoutes = require("./routes/resetPassword");
+const paymentRoutes = require("./routes/paymentRoutes");
 
 app.use("/api/forms", formRoutes);
 app.use("/api/templates", templateRoutes);
 app.use("/api/auth", resetRoutes);
 app.use("/api", googleAuthRoutes);
+// 🔹 Use payment routes
+app.use("/api/payment", paymentRoutes);
 
 // --------------------
 // JWT Middleware
