@@ -2,10 +2,6 @@ const express = require("express");
 const router = express.Router();
 const Form = require("../models/Form");
 const Response = require("../models/Response");
-const FormTemplate = require("../models/FormTemplate");
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
-const checkPlanLimit = require("../middlewares/checkPlan");
 
 
 // POST form responses
