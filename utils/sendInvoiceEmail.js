@@ -5,7 +5,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // ✅ Function to generate email HTML
 function generateInvoiceEmail(payment) {
   return `
-    <div style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #f9fafb; padding: 30px; color: #333;">
+<div style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #f9fafb; padding: 30px; color: #333;">
   <div style="max-width: 600px; background: #ffffff; margin: auto; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); padding: 30px;">
     
     <h2 style="text-align:center; color:#2b6cb0; margin-bottom: 10px;">🧾 Payment Invoice</h2>
@@ -23,15 +23,33 @@ function generateInvoiceEmail(payment) {
         <td style="padding:10px; font-weight:bold;">Payment ID:</td>
         <td style="padding:10px;">${payment.paymentId}</td>
       </tr>
+
       <tr style="background-color:#f3f4f6;">
         <td style="padding:10px; font-weight:bold;">Plan:</td>
-        <td style="padding:10px;">${payment.planName}</td>
+        <td style="padding:10px;">${payment.planName} (${payment.planType})</td>
       </tr>
+
       <tr>
+        <td style="padding:10px; font-weight:bold;">Duration:</td>
+        <td style="padding:10px;">${payment.planDuration} days</td>
+      </tr>
+
+      <tr style="background-color:#f3f4f6;">
+        <td style="padding:10px; font-weight:bold;">Valid From:</td>
+        <td style="padding:10px;">${new Date(payment.planStartDate).toLocaleDateString()}</td>
+      </tr>
+
+      <tr>
+        <td style="padding:10px; font-weight:bold;">Expires On:</td>
+        <td style="padding:10px;">${new Date(payment.planEndDate).toLocaleDateString()}</td>
+      </tr>
+
+      <tr style="background-color:#f3f4f6;">
         <td style="padding:10px; font-weight:bold;">Amount:</td>
         <td style="padding:10px;">₹${payment.amountINR} (${payment.amountUSD} USD)</td>
       </tr>
-      <tr style="background-color:#f3f4f6;">
+
+      <tr>
         <td style="padding:10px; font-weight:bold;">Status:</td>
         <td style="padding:10px; color:green; font-weight:bold;">Success ✅</td>
       </tr>
@@ -50,7 +68,6 @@ function generateInvoiceEmail(payment) {
     </p>
   </div>
 </div>
-
   `;
 }
 
