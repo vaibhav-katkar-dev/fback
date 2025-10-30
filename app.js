@@ -12,7 +12,7 @@ const app = express();
 
 // ✅ CORS with whitelist
 app.use(cors({
-  origin: ['https://form2chat.me', 'https://www.form2chat.me','http://127.0.0.1:5501'], // dono allow
+  origin: ['https://form2chat.me', 'https://www.form2chat.me','http://127.0.0.1:5502'], // dono allow
   credentials: true
 }));
 
@@ -117,7 +117,7 @@ app.get("/api/plan/", verifyToken, async (req, res) => {
     res.json({
       success: true,
       email: payment.user.email,
-      planName: payment.planName,
+      planName: payment.planName || "Free",
       
     });
   } catch (error) {
