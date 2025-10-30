@@ -68,7 +68,7 @@ if (existingActivePlan) {
       return res.status(400).json({ success: false, message: "Invalid plan name" });
     }
 
-    if (!planType || !["monthly", "yearly"].includes(planType)) {
+    if (!planType || !["monthly"].includes(planType)) {
       return res.status(400).json({ success: false, message: "Invalid plan type" });
     }
 

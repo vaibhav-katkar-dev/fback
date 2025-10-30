@@ -54,12 +54,6 @@ const googleAuthRoutes = require("./googleAuth");
 const resetRoutes = require("./routes/resetPassword");
 const paymentRoutes = require("./routes/paymentRoutes");
 
-app.use("/api/forms", formRoutes);
-app.use("/api/templates", templateRoutes);
-app.use("/api/auth", resetRoutes);
-app.use("/api", googleAuthRoutes);
-// 🔹 Use payment routes
-app.use("/api/payment", paymentRoutes);
 
 // --------------------
 // JWT Middleware
@@ -80,6 +74,15 @@ function verifyToken(req, res, next) {
     return res.status(403).json({ msg: "Invalid token" });
   }
 }
+
+app.use("/api/forms", verifyToken,formRoutes);
+app.use("/api/templates", templateRoutes);
+app.use("/api/auth", resetRoutes);
+app.use("/api", googleAuthRoutes);
+// 🔹 Use payment routes
+app.use("/api/payment", paymentRoutes);
+
+
 
 // --------------------
 // Auth Routes

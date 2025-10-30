@@ -5,9 +5,10 @@ const Response = require("../models/Response");
 const FormTemplate = require("../models/FormTemplate");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const checkPlanLimit = require("../middlewares/checkPlan");
 
 // POST - Save form
-router.post("/", async (req, res) => {
+router.post("/",  checkPlanLimit("createForm"), async (req, res) => {
   try {
     console.log("Received form data:", req.body);
 
@@ -57,7 +58,7 @@ const forms = await Form.find({ userId: userId});
 });
 
 // POST submit form response
-router.post("/submit/:formId", async (req, res) => {
+router.post("/submit/:formId",checkPlanLimit("submitResponse"),  async (req, res) => {
   try {
     const formId = req.params.formId;
     const formData = req.body;
@@ -80,7 +81,7 @@ router.get("/by-id/:id", async (req, res) => {
 });
 
 // PUT /api/forms/by-id/:id
-router.put("/by-id/:id", async (req, res) => {
+router.put("/by-id/:id",checkPlanLimit("createForm"), async (req, res) => {
   try {
     const { data, token,userId } = req.body;
     if (!data) return res.status(400).json({ message: "No data provided" });
@@ -133,7 +134,7 @@ router.delete("/by-id/:id", async (req, res) => {
 });
 
 // POST form responses
-router.post("/:formId/responses", async (req, res) => {
+router.post("/:formId/responses",checkPlanLimit("submitResponse"), async (req, res) => {
   const { formId } = req.params;
   const userResponses = req.body;
 
