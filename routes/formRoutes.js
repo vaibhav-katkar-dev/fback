@@ -69,16 +69,7 @@ router.post("/submit/:formId",checkPlanLimit("submitResponse"),  async (req, res
 });
 
 // GET form by ID
-router.get("/by-id/:id", async (req, res) => {
-  try {
-    const form = await Form.findById(req.params.id) || await FormTemplate.findById(req.params.id);
-    if (!form) return res.status(404).json({ message: "Form not found" });
-    res.status(200).json(form);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
+
 
 // PUT /api/forms/by-id/:id
 router.put("/by-id/:id",checkPlanLimit("createForm"), async (req, res) => {
@@ -130,6 +121,25 @@ router.delete("/by-id/:id", async (req, res) => {
     res.status(200).json({ message: "Form deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Error deleting form", error });
+  }
+});
+
+
+router.get("/responses/by-id/:formId/:userId" ,async (req, res) => {
+  try {
+    const { formId, userId } = req.params;
+
+    // better: use findOne and check object existence
+    const form = await Form.findOne({ _id: formId, userId: userId });
+    if (!form) {
+      return res.status(404).json({ message: "Form not found or access denied" });
+    }
+
+    const responses = await Response.find({ formId });
+    return res.json({ responses });
+  } catch (err) {
+    console.error("Error fetching responses:", err);
+    return res.status(500).json({ message: "Error fetching responses", error: err.message });
   }
 });
 
