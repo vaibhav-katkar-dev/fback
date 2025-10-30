@@ -8,26 +8,29 @@ const planLimits = require("../planLimits");
 function checkPlanLimit(action) {
   return async (req, res, next) => {
     try {
-      const userId = req.body.userId || req.params.userId;
+      // ✅ get user email from JWT payload
+      const userEmail = req.user?.email;
 
-      if (!userId) {
-        return res.status(400).json({ success: false, message: "UserID missing" });
+      if (!userEmail) {
+        return res.status(400).json({ success: false, message: "User email missing" });
       }
 
-      // ✅ Fetch active plan (if any)
+      // ✅ Fetch active paid plan
       const activePlan = await Payment.findOne({
-        "user.email": req.user?.email, 
-        verified: true,
-        planEndDate: { $gt: new Date() }
+        "user.email": userEmail,
+        verified: true,                  // payment verified
+        planEndDate: { $gt: new Date() } // plan not expired
       }).sort({ createdAt: -1 });
 
-      const currentPlan = activePlan?.planName || "free"; 
-
+      const currentPlan = activePlan?.planName || "free";
       const limit = planLimits[currentPlan];
+
+      console.log("✅ User Plan:", currentPlan);
 
       // ✅ Check form creation limit
       if (action === "createForm") {
-        const totalForms = await Form.countDocuments({ userId });
+        const totalForms = await Form.countDocuments({ userEmail });
+
         if (totalForms >= limit.maxForms) {
           return res.status(403).json({
             success: false,
