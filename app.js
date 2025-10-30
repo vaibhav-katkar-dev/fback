@@ -49,6 +49,8 @@ connectWithRetry();
 // --------------------
 const User = require("./models/User");
 const formRoutes = require("./routes/formRoutes");
+const form = require("./routes/form");
+
 const templateRoutes = require("./routes/templates");
 const googleAuthRoutes = require("./googleAuth");
 const resetRoutes = require("./routes/resetPassword");
@@ -74,6 +76,7 @@ function verifyToken(req, res, next) {
     return res.status(403).json({ msg: "Invalid token" });
   }
 }
+app.use("/api/forms",form);
 
 app.use("/api/forms",verifyToken,formRoutes);
 app.use("/api/templates", templateRoutes);
