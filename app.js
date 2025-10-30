@@ -75,7 +75,7 @@ function verifyToken(req, res, next) {
   }
 }
 
-app.use("/api/forms", verifyToken,formRoutes);
+app.use("/api/forms",formRoutes);
 app.use("/api/templates", templateRoutes);
 app.use("/api/auth", resetRoutes);
 app.use("/api", googleAuthRoutes);
