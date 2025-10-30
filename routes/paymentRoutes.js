@@ -40,6 +40,7 @@ async function convertUSDToINR(usdAmount) {
 router.post("/create-order", async (req, res) => {
   try {
     const { planName, user } = req.body;
+    console.log("🛒 Creating order for plan:", planName, "User:", user?.email);
 
     if (!planName || !planPricesUSD[planName]) {
       return res.status(400).json({ success: false, message: "Invalid plan name" });

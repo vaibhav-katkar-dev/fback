@@ -12,7 +12,7 @@ const app = express();
 
 // ✅ CORS with whitelist
 app.use(cors({
-  origin: ['https://form2chat.me', 'https://www.form2chat.me'], // dono allow
+  origin: ['https://form2chat.me', 'https://www.form2chat.me','http://127.0.0.1:5501'], // dono allow
   credentials: true
 }));
 
@@ -86,67 +86,9 @@ function verifyToken(req, res, next) {
 // --------------------
 
 
-// // ✅ Signup
-// app.post("/api/auth/signup", async (req, res) => {
-//   try {
-//     const { name, email, password } = req.body;
-//     if (!name || !email || !password) {
-//       return res.status(400).json({ msg: "All fields required" });
-//     }
 
-//     const existingUser = await User.findOne({ email });
-//     if (existingUser) return res.status(400).json({ msg: "Email already exists" });
+const Payment = require("./models/Payment");
 
-//     const hashedPassword = await bcrypt.hash(password, 10);
-
-//     const newUser = new User({
-//       name,
-//       email,
-//       password: hashedPassword,
-//       provider: "local", // ✅ set provider
-//     });
-
-//     await newUser.save();
-
-//     // Generate JWT with expiry
-//     const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-
-//     res.status(201).json({ msg: "User registered", token, user: { id: newUser._id, name: newUser.name, email: newUser.email, provider: newUser.provider } });
-//   } catch (err) {
-//     res.status(500).json({ msg: "Server error", error: err.message });
-//   }
-// });
-
-// // ✅ Login
-// app.post("/api/auth/login", async (req, res) => {
-//   try {
-//     const { email, password } = req.body;
-
-//     const user = await User.findOne({ email });
-//     if (!user) return res.status(400).json({ msg: "Invalid email or password" });
-
-//     // Prevent password login for Google-only users
-//     if (user.provider === "google") {
-//       return res.status(400).json({ msg: "Please login using Google" });
-//     }
-
-//     const isMatch = await bcrypt.compare(password, user.password);
-//     if (!isMatch) return res.status(400).json({ msg: "Invalid email or password" });
-
-//     if (!user.isVerified) {
-//   return res.status(403).json({ msg: "Please verify your email before logging in." });
-// }
-
-
-//     // Issue fresh JWT every login
-//     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-    
-
-//     res.json({ token, user: { id: user._id, name: user.name, email: user.email, provider: user.provider } });
-//   } catch (err) {
-//     res.status(500).json({ msg: "Server error" });
-//   }
-// });
 
 // ✅ Get Current User
 app.get("/api/auth/me", verifyToken, async (req, res) => {
@@ -159,6 +101,32 @@ app.get("/api/auth/me", verifyToken, async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 });
+
+
+app.get("/api/plan/", verifyToken, async (req, res) => {
+  try {
+    // req.user.email comes from decoded JWT
+    const email = req.user.email;
+
+    const payment = await Payment.findOne({"user.email": email });
+
+    if (!payment) {
+      return res.status(404).json({ success: false, message: "Plan not found" });
+    }
+
+    res.json({
+      success: true,
+      email: payment.user.email,
+      planName: payment.planName,
+      
+    });
+  } catch (error) {
+    console.error("Error fetching plan:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
 // --------------------
 // Root Route
 // --------------------

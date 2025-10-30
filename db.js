@@ -11,10 +11,8 @@ async function connectDB() {
 
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
       maxPoolSize: 10,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 10000, // Increased timeout for better reliability
     });
 
     isConnected = conn.connections[0].readyState === 1;

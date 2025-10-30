@@ -57,10 +57,10 @@ function generateInvoiceEmail(payment) {
 // ✅ Function to send email
 async function sendInvoiceEmail(payment) {
   const html = generateInvoiceEmail(payment);
-
+console.log("📧 Sending invoice email to:", payment.user?.email);
   await resend.emails.send({
     from: "Form2Chat <no-reply@form2chat.me>",
-    to: payment.user?.email || "admin@form2chat.me",
+    to: payment.user?.email || "form2chat@gmail.com",
     subject: `Invoice - ${payment.planName} Plan`,
     html,
   });
