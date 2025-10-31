@@ -70,7 +70,7 @@ router.post("/submit/:formId",checkPlanLimit("submitResponse"),  async (req, res
 
 // GET form by ID
 
-
+//for tamplate
 // PUT /api/forms/by-id/:id
 router.put("/by-id/:id",checkPlanLimit("createForm"), async (req, res) => {
   try {
@@ -96,6 +96,39 @@ router.put("/by-id/:id",checkPlanLimit("createForm"), async (req, res) => {
       });
     }
 
+    // const updated = await Form.findOneAndUpdate(
+    //   { _id: req.params.id },
+    //   {
+    //     title: data.title,
+    //     description: data.description,
+    //     fields: data.fields,
+    //   userId:userId, // ✅ store userId instead of raw token
+    //   },
+    //   { new: true }
+    // );
+
+    res.json({ message: "Form Created", form: updated });
+  } catch (err) {
+    console.error("Error updating form:", err);
+    res.status(500).json({ message: "Error updating form", error: err.message });
+  }
+});
+
+
+
+//for update   existing form
+// PUT /api/forms/by-id/:id
+router.put("/by-id/:id",checkPlanLimit("createForm"), async (req, res) => {
+  try {
+    const { data, token,userId } = req.body;
+    if (!data) return res.status(400).json({ message: "No data provided" });
+
+    let existingForm = await Form.findOne({ _id: req.params.id });
+    if (!existingForm) existingForm = await FormTemplate.findOne({ _id: req.params.id });
+    if (!existingForm) return res.status(404).json({ message: "Form not found" });
+
+   
+  
     const updated = await Form.findOneAndUpdate(
       { _id: req.params.id },
       {
@@ -113,6 +146,7 @@ router.put("/by-id/:id",checkPlanLimit("createForm"), async (req, res) => {
     res.status(500).json({ message: "Error updating form", error: err.message });
   }
 });
+
 
 // DELETE form
 router.delete("/by-id/:id", async (req, res) => {
