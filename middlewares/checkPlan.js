@@ -44,19 +44,32 @@ function checkPlanLimit(action) {
         }
       }
 
-      // ✅ Form response limit
-      if (action === "submitResponse") {
-        const formId = req.params.formId;
-        const count = await Response.countDocuments({ formId });
+// ✅ Form response limit
+if (action === "Response") {
+  const formId = req.params.formId;
+  const userId = req.user?.id; // ✅ logged-in owner's ID from token
 
-        if (count >= limit.maxResponsesPerForm) {
-          return res.status(403).json({
-            success: false,
-            message: `Response limit reached for ${currentPlan} plan. Upgrade required.`,
-            upgradeRequired: true
-          });
-        }
-      }
+  // ✅ First check if the form belongs to this user (form owner)
+  const form = await Form.findOne({ _id: formId, userId });
+
+  if (!form) {
+    return res.status(403).json({
+      success: false,
+      message: "Form access denied or form not found"
+    });
+  }
+
+  // ✅ Count only that form's responses
+  const count = await Response.countDocuments({ formId });
+
+  if (count >= limit.maxResponsesPerForm) {
+    return res.status(403).json({
+      success: false,
+      message: `Response limit reached for ${currentPlan} plan. Upgrade required.`,
+      upgradeRequired: true
+    });
+  }
+}
 
       next();
     } catch (err) {

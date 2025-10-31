@@ -28,25 +28,8 @@ router.post("/:formId/responses", async (req, res) => {
   }
 });
 
-// GET responses by formId
-// auth middleware should set req.user = { id: '...' }
-router.get("/responses/by-id/:formId/:userId" ,async (req, res) => {
-  try {
-    const { formId, userId } = req.params;
 
-    // better: use findOne and check object existence
-    const form = await Form.findOne({ _id: formId, userId: userId });
-    if (!form) {
-      return res.status(404).json({ message: "Form not found or access denied" });
-    }
 
-    const responses = await Response.find({ formId });
-    return res.json({ responses });
-  } catch (err) {
-    console.error("Error fetching responses:", err);
-    return res.status(500).json({ message: "Error fetching responses", error: err.message });
-  }
-});
 router.get("/by-id/:id", async (req, res) => {
   try {
     const form = await Form.findById(req.params.id) || await FormTemplate.findById(req.params.id);
