@@ -69,84 +69,73 @@ router.post("/submit/:formId",checkPlanLimit("submitResponse"),  async (req, res
 });
 
 // GET form by ID
+const checkPlan = require("../middlewares/checkPlan");
 
-//for tamplate
-// PUT /api/forms/by-id/:id
-router.put("/by-id/:id",checkPlanLimit("createForm"), async (req, res) => {
-  try {
-    const { data, token,userId } = req.body;
-    if (!data) return res.status(400).json({ message: "No data provided" });
-
-    let existingForm = await Form.findOne({ _id: req.params.id });
-    if (!existingForm) existingForm = await FormTemplate.findOne({ _id: req.params.id });
-    if (!existingForm) return res.status(404).json({ message: "Form not found" });
-
-    if (existingForm.status === "template") {
-      const newForm = new Form({
-        title: data.title || existingForm.title,
-        description: data.description || existingForm.description,
-        fields: data.fields || existingForm.fields,
-      userId:userId, // ✅ store userId instead of raw token
-      });
-
-      const savedForm = await newForm.save();
-      return res.status(201).json({
-        message: "New form created from template",
-        form: savedForm,
-      });
-    }
-
-    // const updated = await Form.findOneAndUpdate(
-    //   { _id: req.params.id },
-    //   {
-    //     title: data.title,
-    //     description: data.description,
-    //     fields: data.fields,
-    //   userId:userId, // ✅ store userId instead of raw token
-    //   },
-    //   { new: true }
-    // );
-
-    res.json({ message: "Form Created", form: updated });
-  } catch (err) {
-    console.error("Error updating form:", err);
-    res.status(500).json({ message: "Error updating form", error: err.message });
-  }
-});
-
-
-
-//for update   existing form
-// PUT /api/forms/by-id/:id
 router.put("/by-id/:id", async (req, res) => {
   try {
-    const { data, token,userId } = req.body;
+    const { data, userId } = req.body;
     if (!data) return res.status(400).json({ message: "No data provided" });
 
-    let existingForm = await Form.findOne({ _id: req.params.id });
-    if (!existingForm) existingForm = await FormTemplate.findOne({ _id: req.params.id });
-    if (!existingForm) return res.status(404).json({ message: "Form not found" });
+    // ✅ Check if this form already exists (user updating form)
+    let existingForm = await Form.findById(req.params.id);
 
-   
-  
-    const updated = await Form.findOneAndUpdate(
-      { _id: req.params.id },
-      {
-        title: data.title,
-        description: data.description,
-        fields: data.fields,
-      userId:userId, // ✅ store userId instead of raw token
-      },
-      { new: true }
-    );
+    if (existingForm) {
+      // ✅ If the form belongs to the same user --> allow update (no plan check)
+      if (existingForm.userId.toString() === userId) {
+        const updatedForm = await Form.findOneAndUpdate(
+          { _id: req.params.id },
+          {
+            title: data.title,
+            description: data.description,
+            fields: data.fields,
+            userId
+          },
+          { new: true }
+        );
 
-    res.json({ message: "Form updated", form: updated });
+        return res.json({ 
+          message: "Form updated", 
+          form: updatedForm 
+        });
+      }
+
+      return res.status(403).json({ message: "You do not own this form" });
+    }
+
+    // ✅ If not form, maybe it's a template → Try finding template
+    const template = await FormTemplate.findById(req.params.id);
+
+    if (!template) {
+      return res.status(404).json({ message: "Form/Template not found" });
+    }
+
+    // ✅ Template → New Form Creation → APPLY PLAN LIMIT
+    await checkPlan("createForm")(req, res, () => {});
+    if (res.headersSent) return; // If blocked by plan limit, stop here
+
+    // ✅ Create new form from template
+    const newForm = new Form({
+      title: data.title || template.title,
+      description: data.description || template.description,
+      fields: data.fields || template.fields,
+      userId
+    });
+
+    const savedForm = await newForm.save();
+
+    return res.status(201).json({
+      message: "New form created from template",
+      form: savedForm
+    });
+
   } catch (err) {
-    console.error("Error updating form:", err);
-    res.status(500).json({ message: "Error updating form", error: err.message });
+    console.error("Error in form save/update:", err);
+    res.status(500).json({ 
+      message: "Server error", 
+      error: err.message 
+    });
   }
 });
-
 
 // DELETE form
 router.delete("/by-id/:id", async (req, res) => {
