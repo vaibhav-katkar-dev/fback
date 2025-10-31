@@ -7,7 +7,7 @@ module.exports = {
   },
   Starter: {
     maxForms: 3,
-    maxResponsesPerForm: 5,
+    maxResponsesPerForm: 10,
   },
   Pro: {
     maxForms: 10,
