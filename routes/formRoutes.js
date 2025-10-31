@@ -6,6 +6,8 @@ const FormTemplate = require("../models/FormTemplate");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const checkPlanLimit = require("../middlewares/checkPlan");
+const Payment = require("../models/Payment");
+const planLimits = require("../planLimits");
 
 // POST - Save form
 router.post("/",  checkPlanLimit("createForm"), async (req, res) => {
@@ -141,23 +143,51 @@ router.put("/by-id/:id", async (req, res) => {
 
 // GET responses by formId
 // auth middleware should set req.user = { id: '...' }
-router.get("/responses/by-id/:formId/:userId", checkPlanLimit("Response"),async (req, res) => {
+router.get("/responses/by-id/:formId/:userId", async (req, res) => {
   try {
     const { formId, userId } = req.params;
 
-    // better: use findOne and check object existence
-    const form = await Form.findOne({ _id: formId, userId: userId });
+    // ✅ Check form belongs to user
+    const form = await Form.findOne({ _id: formId, userId });
     if (!form) {
       return res.status(404).json({ message: "Form not found or access denied" });
     }
 
-    const responses = await Response.find({ formId });
-    return res.json({ responses });
+    // ✅ Get user plan
+    const payment = await Payment.findOne({
+      "user.email": req.user?.email,
+      verified: true,
+      planEndDate: { $gt: new Date() }
+    }).sort({ createdAt: -1 });
+
+    const currentPlan = payment?.planName || "free";
+    const limit = planLimits[currentPlan]?.maxResponsesPerForm || 0;
+
+    // ✅ Count all responses
+    const totalResponses = await Response.countDocuments({ formId });
+
+    // ✅ Send only allowed responses but inform total count
+    const allowedResponses = await Response.find({ formId })
+      .sort({ createdAt: -1 })
+      .limit(limit);
+
+    return res.json({
+      success: true,
+      plan: currentPlan,
+      totalResponses,
+      allowedLimit: limit,
+      shownResponses: allowedResponses.length,
+      responses: allowedResponses,
+      upgradeRequired: totalResponses > limit
+    });
   } catch (err) {
     console.error("Error fetching responses:", err);
-    return res.status(500).json({ message: "Error fetching responses", error: err.message });
+    return res
+      .status(500)
+      .json({ message: "Error fetching responses", error: err.message });
   }
 });
+
 
 // DELETE form
 router.delete("/by-id/:id", async (req, res) => {
