@@ -29,7 +29,7 @@ function checkPlanLimit(action) {
 
       // ✅ Check form creation limit
       if (action === "createForm") {
-        const totalForms = await Form.countDocuments({ userEmail });
+        const totalForms = await Form.countDocuments({ "user.email": userEmail });
 
         if (totalForms >= limit.maxForms) {
           return res.status(403).json({
