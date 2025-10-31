@@ -118,7 +118,7 @@ router.put("/by-id/:id",checkPlanLimit("createForm"), async (req, res) => {
 
 //for update   existing form
 // PUT /api/forms/by-id/:id
-router.put("/by-id/:id",checkPlanLimit("createForm"), async (req, res) => {
+router.put("/by-id/:id", async (req, res) => {
   try {
     const { data, token,userId } = req.body;
     if (!data) return res.status(400).json({ message: "No data provided" });
