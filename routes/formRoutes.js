@@ -127,15 +127,15 @@ router.delete("/by-id/:id", async (req, res) => {
 
 
 
-router.get("/by-id/:id", async (req, res) => {
-  try {
-    const form = await Form.findById(req.params.id) || await FormTemplate.findById(req.params.id);
-    if (!form) return res.status(404).json({ message: "Form not found" });
-    res.status(200).json(form);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
+// router.get("/by-id/:id", async (req, res) => {
+//   try {
+//     const form = await Form.findById(req.params.id) || await FormTemplate.findById(req.params.id);
+//     if (!form) return res.status(404).json({ message: "Form not found" });
+//     res.status(200).json(form);
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// });
 
 module.exports = router;
