@@ -124,6 +124,8 @@ app.get("/api/plan/", verifyToken, async (req, res) => {
         success: true,
         email,
         planName: "Free",
+         isExpired: false,
+    expiresOn: null
       });
     }
 
