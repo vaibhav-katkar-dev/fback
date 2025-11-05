@@ -142,11 +142,13 @@ router.post("/verify", async (req, res) => {
     payment.verified = true;
 
     // ✅ Assign Plan Duration
-    const durationDays = payment.planType === "yearly" ? 365 : 30;
+    // ✅ Testing — expiry in 15 minutes
+const durationMinutes = 15;
 
-    payment.planStartDate = new Date();
-    payment.planEndDate = new Date(Date.now() + durationDays * 86400000);
-    payment.planDuration = durationDays;
+payment.planStartDate = new Date();
+payment.planEndDate = new Date(Date.now() + durationMinutes * 60 * 1000);
+payment.planDuration = durationMinutes; // store minutes for debug
+
     payment.isActive = true;
 
     await payment.save();
