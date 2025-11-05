@@ -24,7 +24,7 @@ app.use(cors({
 app.use(express.json());
 
 // -------------------- Security Middlewares --------------------
-app.use(helmet()); // Security Headers
+// app.use(helmet()); // Security Headers
 
 // Prevent MongoDB injection
 app.use(mongoSanitize());
