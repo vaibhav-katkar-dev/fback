@@ -30,7 +30,7 @@ app.use(express.json());
 // app.use(mongoSanitize());
 
 // Prevent XSS attacks
-// app.use(xss());
+app.use(xss());
 
 // Rate limiting to stop spam/bruteforce
 const apiLimiter = rateLimit({
