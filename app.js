@@ -4,6 +4,10 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
+const rateLimit = require("express-rate-limit");
+const helmet = require("helmet");
+const mongoSanitize = require("express-mongo-sanitize");
+const xss = require("xss-clean");
 
 require("dotenv").config();
   const connectDB = require("./db");
@@ -18,6 +22,26 @@ app.use(cors({
 
 
 app.use(express.json());
+
+// -------------------- Security Middlewares --------------------
+app.use(helmet()); // Security Headers
+
+// Prevent MongoDB injection
+app.use(mongoSanitize());
+
+// Prevent XSS attacks
+app.use(xss());
+
+// Rate limiting to stop spam/bruteforce
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // max 200 req per 15 minutes
+  message: { msg: "Too many requests. Please slow down ⛔" },
+});
+app.use("/api", apiLimiter);
+
+
+
 
 // --------------------
 // MongoDB connection
