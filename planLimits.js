@@ -7,14 +7,14 @@ module.exports = {
   },
   Starter: {
     maxForms: 3,
-    maxResponsesPerForm: 10,
+    maxResponsesPerForm: 300,
   },
   Pro: {
     maxForms: 10,
     maxResponsesPerForm: 1000,
   },
   Business: {
-    maxForms: Infinity, 
-    maxResponsesPerForm: Infinity,
+    maxForms: 50, 
+    maxResponsesPerForm: 10000,
   }
 };
