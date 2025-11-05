@@ -113,27 +113,37 @@ app.get("/api/auth/me", verifyToken, async (req, res) => {
 
 app.get("/api/plan/", verifyToken, async (req, res) => {
   try {
-    // req.user.email comes from decoded JWT
     const email = req.user.email;
 
-    const payment = await Payment.findOne({"user.email": email });
+    // ✅ Find latest active or last subscription
+    const payment = await Payment.findOne({ "user.email": email })
+      .sort({ planEndDate: -1, createdAt: -1 });
 
     if (!payment) {
-      return res.status(404).json({ success: false, message: "Plan not found" });
+      return res.json({
+        success: true,
+        email,
+        planName: "Free",
+      });
     }
+
+    // ✅ Check expiry
+    const now = new Date();
+    const isExpired = payment.planEndDate && payment.planEndDate < now;
 
     res.json({
       success: true,
       email: payment.user.email,
-      planName: payment.planName || "Free",
-      
+      planName: isExpired ? "Free" : payment.planName,
+      expiresOn: payment.planEndDate,
+      isExpired
     });
+
   } catch (error) {
     console.error("Error fetching plan:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
-
 
 // --------------------
 // Root Route
