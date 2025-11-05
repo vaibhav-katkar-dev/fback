@@ -27,7 +27,7 @@ app.use(express.json());
 // app.use(helmet()); // Security Headers
 
 // Prevent MongoDB injection
-app.use(mongoSanitize());
+// app.use(mongoSanitize());
 
 // Prevent XSS attacks
 app.use(xss());
