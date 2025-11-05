@@ -14,82 +14,84 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// ✅ Step 1: Your base USD plan prices
-// ✅ Monthly / Yearly plan prices (USD)
+// ✅ Plan Prices (USD)
 const planPricesUSD = {
   Starter: { monthly: 2, yearly: 20 },
   Pro: { monthly: 6, yearly: 60 },
   Business: { monthly: 15, yearly: 150 },
 };
 
+// ✅ Plan Rank for Upgrade Rules
+const planRank = { free: 0, Starter: 1, Pro: 2, Business: 3 };
 
-// ✅ Step 2: Helper to convert USD → INR dynamically
+// ✅ Convert USD → INR
 async function convertUSDToINR(usdAmount) {
   try {
     const response = await axios.get("https://api.exchangerate-api.com/v4/latest/USD");
     const rate = response.data.rates.INR;
-    const converted = Math.round(usdAmount * rate);
-    return converted; // returns INR amount
+    return Math.round(usdAmount * rate);
   } catch (error) {
-    console.error("Currency conversion failed:", error);
-    // fallback rate in case API fails
+    console.error("Currency API failed. Using fallback INR rate.");
     return Math.round(usdAmount * 83);
   }
 }
 
-// ✅ Step 3: Create Order (secure, backend-decided amount)
-// 🧾 Create Razorpay Order
+// ✅ Create Razorpay Order
 router.post("/create-order", async (req, res) => {
   try {
     const { planName, planType, user } = req.body;
-    console.log("🛒 Creating order:", planName, planType, "User:", user?.email);
+    console.log("🛒 Create order request:", planName, planType, "User:", user?.email);
 
-    // ✅ Check if user already has an active subscription
-const existingActivePlan = await Payment.findOne({
-  "user.email": user.email,
-  verified: true,
-  planEndDate: { $gt: new Date() } // plan not expired
-});
+    // Validate inputs
+    if (!planName || !planPricesUSD[planName])
+      return res.status(400).json({ success: false, message: "Invalid plan" });
 
-if (existingActivePlan) {
-  return res.status(400).json({
-    success: false,
-    message: `You already have an active plan (${existingActivePlan.planName} - ${existingActivePlan.planType}). Please wait until expiry.`,
-    activePlan: {
-      plan: existingActivePlan.planName,
-      type: existingActivePlan.planType,
-      expires: existingActivePlan.planEndDate,
-    }
-  });
-}
-
-    // ✅ Validate Plan
-    if (!planName || !planPricesUSD[planName]) {
-      return res.status(400).json({ success: false, message: "Invalid plan name" });
-    }
-
-    if (!planType || !["monthly"].includes(planType)) {
+    if (!planType || !["monthly", "yearly"].includes(planType))
       return res.status(400).json({ success: false, message: "Invalid plan type" });
+
+    // ✅ Check existing active plan
+    const existingPlan = await Payment.findOne({
+      "user.email": user.email,
+      verified: true,
+      planEndDate: { $gt: new Date() }
+    }).sort({ createdAt: -1 });
+
+    // ✅ If user already has a plan
+    if (existingPlan) {
+      const currentPlan = existingPlan.planName;
+
+      // Only allow upgrade (higher tiers)
+      if (planRank[planName] <= planRank[currentPlan]) {
+        return res.status(400).json({
+          success: false,
+          message: `You already have ${currentPlan} plan. Upgrade to higher plan only.`,
+        });
+      }
+
+      console.log(`⚡ Upgrade triggered: ${currentPlan} → ${planName}`);
+      req.body.isUpgrade = true;
+      req.body.oldPlan = currentPlan;
     }
 
-    // ✅ Select price by planType
+    // ✅ Calculate amount
     const usdAmount =
-  planType === "monthly"
-    ? planPricesUSD[planName].monthly
-    : planPricesUSD[planName].yearly;
+      planType === "monthly"
+        ? planPricesUSD[planName].monthly
+        : planPricesUSD[planName].yearly;
 
     const inrAmount = await convertUSDToINR(usdAmount);
 
+    // Create Razorpay order
     const options = {
       amount: inrAmount * 100,
       currency: "INR",
-      receipt: "receipt_" + Date.now(),
-      notes: { plan: planName, type: planType, user_email: user?.email || "N/A" },
+      receipt: "rcpt_" + Date.now(),
+      notes: { plan: planName, type: planType, user_email: user?.email },
     };
 
     const order = await razorpay.orders.create(options);
 
-    // ✅ Save initial Payment Data
+    // Save Payment
     const newPayment = new Payment({
       orderId: order.id,
       planName,
@@ -98,31 +100,29 @@ if (existingActivePlan) {
       amountINR: inrAmount,
       user,
       status: "created",
+      isUpgrade: req.body.isUpgrade || false,
+      upgradedFrom: req.body.oldPlan || null,
     });
 
     await newPayment.save();
 
-    console.log(`🧾 Order Created: ${order.id} | ${planName} (${planType}) - ₹${inrAmount}`);
     res.json({ success: true, order, amountINR: inrAmount });
 
   } catch (error) {
-    console.error("❌ Order creation failed:", error);
+    console.error("❌ Order error:", error);
     res.status(500).json({ success: false, message: "Order creation failed" });
   }
 });
 
-// ✅ Step 4: Verify payment securely
+// ✅ Verify Payment
 router.post("/verify", async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
-    // 1️⃣ Find order in DB
     const payment = await Payment.findOne({ orderId: razorpay_order_id });
-    if (!payment) {
-      return res.status(404).json({ success: false, message: "Order not found" });
-    }
+    if (!payment) return res.status(404).json({ success: false, message: "Order not found" });
 
-    // 2️⃣ Verify signature
+    // Signature Check
     const expectedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
@@ -132,58 +132,50 @@ router.post("/verify", async (req, res) => {
       payment.status = "failed";
       payment.verified = false;
       await payment.save();
-      console.warn("⚠️ Payment signature mismatch!");
-      return res.status(400).json({ success: false, message: "Invalid signature" });
+      return res.status(400).json({ success: false, message: "Invalid payment signature" });
     }
 
-    // ✅ Payment is authentic
+    // ✅ Mark Payment Success
     payment.paymentId = razorpay_payment_id;
     payment.signature = razorpay_signature;
     payment.status = "success";
     payment.verified = true;
 
-    // 3️⃣ Activate plan + set duration
-    let durationDays = payment.planType === "yearly" ? 365 : 30;
+    // ✅ Assign Plan Duration
+    const durationDays = payment.planType === "yearly" ? 365 : 30;
 
-    payment.planDuration = durationDays;
     payment.planStartDate = new Date();
-payment.planEndDate = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
+    payment.planEndDate = new Date(Date.now() + durationDays * 86400000);
+    payment.planDuration = durationDays;
     payment.isActive = true;
 
     await payment.save();
 
-    console.log(`✅ VERIFIED PAYMENT for ${payment.planName} (${payment.planType})`);
-    console.log(`📅 From: ${payment.planStartDate}`);
-    console.log(`⏳ To:   ${payment.planEndDate}`);
-    console.log(`👤 User: ${payment.user?.email}`);
-    console.log(`💰 Amount: ₹${payment.amountINR}`);
-    console.log("--------------------------------");
-
-    // 4️⃣ Send Invoice Email
-    try {
-      await sendInvoiceEmail(payment);
-    } catch (err) {
-      console.error("❌ Failed to send invoice email:", err);
+    // ✅ Send Invoice Email
+    try { await sendInvoiceEmail(payment); } catch (err) {
+      console.error("Invoice Email Failed:", err);
     }
 
     res.json({
       success: true,
-      message: "Payment verified & plan activated successfully",
+      message: payment.isUpgrade
+        ? `Plan upgraded successfully to ${payment.planName}`
+        : `Plan activated successfully`,
       plan: {
-        type: payment.planType,
+        name: payment.planName,
+        upgradedFrom: payment.upgradedFrom || null,
         start: payment.planStartDate,
-        end: payment.planEndDate
+        end: payment.planEndDate,
       }
     });
 
   } catch (error) {
-    console.error("❌ Payment verification error:", error);
+    console.error("❌ Verify error:", error);
     res.status(500).json({ success: false, message: "Verification failed" });
   }
 });
 
-
-// ✅ Step 5: Get Razorpay Public Key
+// ✅ Get Razorpay Public Key
 router.get("/get-key", (req, res) => {
   res.json({ key: process.env.RAZORPAY_KEY_ID });
 });
