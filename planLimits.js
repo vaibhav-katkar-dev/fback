@@ -2,12 +2,12 @@
 
 module.exports = {
   free: {
-    maxForms: 1,
-    maxResponsesPerForm: 50,
+    maxForms: 3,
+    maxResponsesPerForm: 200,
   },
   Starter: {
-    maxForms: 3,
-    maxResponsesPerForm: 300,
+    maxForms: 5,
+    maxResponsesPerForm: 500,
   },
   Pro: {
     maxForms: 10,
