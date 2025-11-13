@@ -16,7 +16,7 @@ const app = express();
 
 // ✅ CORS with whitelist
 app.use(cors({
-  origin: ['https://form2chat.me', 'https://www.form2chat.me','http://127.0.0.1:5502'], // dono allow
+  origin: ['https://form2chat.me', 'https://www.form2chat.me','http://127.0.0.1:5502','https://api.form2chat.me/'], // dono allow
   credentials: true
 }));
 
@@ -24,7 +24,25 @@ app.use(cors({
 app.use(express.json());
 
 // -------------------- Security Middlewares --------------------
-app.use(helmet()); // Security Headers
+
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "https://cdn.jsdelivr.net", // ✅ allow Chart.js CDN
+          "'unsafe-inline'", // ✅ allow inline EJS scripts
+        ],
+        styleSrc: ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:"],
+      },
+    },
+  })
+);
+
 
 // Prevent MongoDB injection
 // app.use(mongoSanitize());
@@ -66,6 +84,8 @@ async function connectWithRetry() {
 }
 connectWithRetry();
 
+const adminAnalytics = require("./routes/adminAnalytics");
+app.use("/api/admin", adminAnalytics);
 
 
 // --------------------
