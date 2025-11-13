@@ -16,7 +16,7 @@ const app = express();
 
 // ✅ CORS with whitelist
 app.use(cors({
-  origin: ['https://form2chat.me', 'https://www.form2chat.me','http://127.0.0.1:5502','https://api.form2chat.me/'], // dono allow
+  origin: ['https://form2chat.me', 'https://www.form2chat.me','http://127.0.0.1:5502',], // dono allow
   credentials: true
 }));
 
