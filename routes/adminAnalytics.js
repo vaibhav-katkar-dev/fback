@@ -11,7 +11,7 @@ const jwt = require("jsonwebtoken");
 const ADMIN_EMAIL = "vaibhavkatkar.co@gmail.com"; // your admin email
 
 function isAdmin(req, res, next) {
-  let token = req.headers["authorization"] || req.cookies.token;
+  let token = req.headers["authorization"] || req.cookies.token || req.params;
   if (!token) return res.status(401).send("Unauthorized: No token provided");
 
   if (token.startsWith("Bearer ")) token = token.slice(7);
