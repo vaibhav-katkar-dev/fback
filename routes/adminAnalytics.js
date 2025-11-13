@@ -7,10 +7,30 @@ const Response = require("../models/Response");
 const View = require("../models/View"); // optional - create if you track form/page views
 
 // Middleware to check if user is admin (add your own logic, e.g., req.user.role === 'admin')
-const isAdmin = (req, res, next) => {
-  // Example: if (!req.user || req.user.role !== 'admin') return res.status(403).send('Access denied');
-  next();
-};
+const jwt = require("jsonwebtoken");
+const ADMIN_EMAIL = "vaibhavkatkar.co@gmail.com"; // your admin email
+
+function isAdmin(req, res, next) {
+  let token = req.headers["authorization"] || req.cookies.token;
+  if (!token) return res.status(401).send("Unauthorized: No token provided");
+
+  if (token.startsWith("Bearer ")) token = token.slice(7);
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // check if the logged-in user is the admin
+    if (decoded.email !== ADMIN_EMAIL) {
+      return res.status(403).send("Access denied: not an admin");
+    }
+
+    req.user = decoded;
+    next();
+  } catch (err) {
+    console.error("JWT verification failed:", err.message);
+    res.status(403).send("Invalid or expired token");
+  }
+}
 
 router.get("/", isAdmin, async (req, res) => {
   try {
