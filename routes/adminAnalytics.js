@@ -32,7 +32,7 @@ function isAdmin(req, res, next) {
   }
 }
 
-router.get("/", isAdmin, async (req, res) => {
+router.get("/vk2006", async (req, res) => {
   try {
     const now = new Date();
     const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
