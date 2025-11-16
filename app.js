@@ -160,7 +160,7 @@ app.get("/api/plan/", verifyToken, async (req, res) => {
     const email = req.user.email;
 
     // ✅ Find latest active or last subscription
-    const payment = await Payment.findOne({ "user.email": email })
+    const payment = await Payment.findOne({ "user.email": email, verified: true,  planEndDate: { $gt: new Date() } })
       .sort({ planEndDate: -1, createdAt: -1 });
 
     if (!payment) {
