@@ -158,40 +158,58 @@ app.get("/api/plan/", verifyToken, async (req, res) => {
   try {
     const email = req.user.email;
 
-    const payment = await Payment.findOne({
+    // 1️⃣ Check ACTIVE VALID PLAN
+    const activePayment = await Payment.findOne({
       "user.email": email,
       verified: true,
-      planEndDate: { $gt: new Date() }
-    }).sort({ planEndDate: -1, createdAt: -1 });
+      planEndDate: { $gt: new Date() },
+    }).sort({ createdAt: -1 });
 
-    // ❗ FIXED: No payment found
-    if (!payment) {
+    if (activePayment) {
       return res.json({
-        success: false,
+        success: true,
         email,
-        planName: "Free",
+        planName: activePayment.planName,
+        expiresOn: activePayment.planEndDate,
         isExpired: false,
-        expiresOn: null
+        pending: false
       });
     }
 
-    const now = new Date();
-    const isExpired = payment.planEndDate < now;
+    // 2️⃣ Check PENDING payment
+    const pendingPayment = await Payment.findOne({
+      "user.email": email,
+      verified: false,
+      status: "created"
+    }).sort({ createdAt: -1 });
 
-    res.json({
+    if (pendingPayment) {
+      return res.json({
+        success: true,
+        email,
+        planName: "Free",   // still free until verified
+        pending: true,
+        message: "Payment is created but not completed",
+        expiresOn: null,
+        isExpired: false
+      });
+    }
+
+    // 3️⃣ Default → FREE plan
+    return res.json({
       success: true,
-      email: payment.user.email,
-      planName: isExpired ? "Free" : payment.planName,
-      expiresOn: payment.planEndDate,
-      isExpired
+      email,
+      planName: "Free",
+      expiresOn: null,
+      isExpired: false,
+      pending: false
     });
 
   } catch (error) {
-    console.error("Error fetching plan:", error);
+    console.error("Plan API error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
-
 
 // --------------------
 // Root Route
