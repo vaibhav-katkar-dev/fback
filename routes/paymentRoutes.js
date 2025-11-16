@@ -16,9 +16,9 @@ const razorpay = new Razorpay({
 
 // ✅ Plan Prices (USD)
 const planPricesUSD = {
-  Starter: { monthly: 0.10, yearly: 20 },
-  Pro: { monthly: 0.12, yearly: 60 },
-  Business: { monthly: 0.15, yearly: 150 },
+  Starter: { monthly: 2, yearly: 20 },
+  Pro: { monthly: 6, yearly: 60 },
+  Business: { monthly: 15, yearly: 150 },
 };
 
 // ✅ Plan Rank for Upgrade Rules
