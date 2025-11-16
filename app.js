@@ -154,28 +154,29 @@ app.get("/api/auth/me", verifyToken, async (req, res) => {
   }
 });
 
-
 app.get("/api/plan/", verifyToken, async (req, res) => {
   try {
     const email = req.user.email;
 
-    // ✅ Find latest active or last subscription
-    const payment = await Payment.findOne({ "user.email": email, verified: true,  planEndDate: { $gt: new Date() } })
-      .sort({ planEndDate: -1, createdAt: -1 });
+    const payment = await Payment.findOne({
+      "user.email": email,
+      verified: true,
+      planEndDate: { $gt: new Date() }
+    }).sort({ planEndDate: -1, createdAt: -1 });
 
+    // ❗ FIXED: No payment found
     if (!payment) {
       return res.json({
-        success: true,
+        success: false,
         email,
         planName: "Free",
-         isExpired: false,
-    expiresOn: null
+        isExpired: false,
+        expiresOn: null
       });
     }
 
-    // ✅ Check expiry
     const now = new Date();
-    const isExpired = payment.planEndDate && payment.planEndDate < now;
+    const isExpired = payment.planEndDate < now;
 
     res.json({
       success: true,
@@ -190,6 +191,7 @@ app.get("/api/plan/", verifyToken, async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
 
 // --------------------
 // Root Route
