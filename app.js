@@ -58,6 +58,17 @@ const apiLimiter = rateLimit({
 });
 app.use("/api", apiLimiter);
 
+//refer  coockeis
+app.use((req, res, next) => {
+  if (req.query.ref) {
+    res.cookie("referral", req.query.ref, {
+      maxAge: 30 * 24 * 60 * 60 * 1000,   // 30 days
+      httpOnly: true
+    });
+  }
+  next();
+});
+
 
 
 

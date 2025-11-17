@@ -117,7 +117,7 @@ router.post("/create-order", async (req, res) => {
 // ✅ Verify Payment
 router.post("/verify", async (req, res) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, referral } = req.body;
 
     const payment = await Payment.findOne({ orderId: razorpay_order_id });
     if (!payment) return res.status(404).json({ success: false, message: "Order not found" });
@@ -140,6 +140,7 @@ router.post("/verify", async (req, res) => {
     payment.signature = razorpay_signature;
     payment.status = "success";
     payment.verified = true;
+    payment.referredBy= referral || null;
 
     // ✅ Assign Plan Duration
     const durationDays = payment.planType === "yearly" ? 365 : 30;

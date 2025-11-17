@@ -32,6 +32,11 @@ const paymentSchema = new mongoose.Schema({
   status: { type: String, enum: ["created", "success", "failed"], default: "created" },
   verified: { type: Boolean, default: false },
 
+referredBy: {
+    type: String,
+    default: null   // <-- THIS IS PERFECT
+  },
+
   createdAt: { type: Date, default: Date.now },
 });
 
