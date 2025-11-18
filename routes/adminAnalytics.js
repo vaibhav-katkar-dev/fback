@@ -60,7 +60,7 @@ router.get("/vk2006", async (req, res) => {
       View ? View.countDocuments().catch(() => 0) : 0,
       Payment.find(
         { verified: true },
-        { "user.email": 1, planName: 1, amountINR: 1, createdAt: 1 }
+        { "user.email": 1, planName: 1, amountINR: 1, createdAt: 1, referredBy: 1 }
       )
         .sort({ createdAt: -1 })
         .limit(100)
