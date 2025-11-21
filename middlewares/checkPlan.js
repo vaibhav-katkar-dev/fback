@@ -1,6 +1,5 @@
 const Payment = require("../models/Payment");
 const Form = require("../models/Form");
-const Response = require("../models/Response");
 const planLimits = require("../planLimits");
 
 function checkPlanLimit(action) {
@@ -9,17 +8,17 @@ function checkPlanLimit(action) {
       const userId = req.user?.id;
       const userEmail = req.user?.email;
 
-      // ✅ For form creation & editing — user must be logged in
-      if (action === "createForm" && (!userId || !userEmail)) {
-        return res.status(401).json({ success: false, message: "Login required" });
-      }
-
-      // ✅ For public form submissions — don't block if no login
+      // Public submission → ignore limits
       if (action === "submitResponse" && (!userId || !userEmail)) {
         return next();
       }
 
-      // ✅ Get active paid plan
+      // Must be logged in for form creation
+      if (!userId || !userEmail) {
+        return res.status(401).json({ success: false, message: "Login required" });
+      }
+
+      // Get active paid plan
       const activePlan = await Payment.findOne({
         "user.email": userEmail,
         verified: true,
@@ -29,11 +28,11 @@ function checkPlanLimit(action) {
       const currentPlan = activePlan?.planName || "free";
       const limit = planLimits[currentPlan];
 
-      console.log("✅ User Plan:", currentPlan);
+      console.log("User Plan:", currentPlan);
 
-      // ✅ Form creation limit
+      // Plan check → create form
       if (action === "createForm") {
-        const totalForms = await Form.countDocuments({ userId: userId });
+        const totalForms = await Form.countDocuments({ userId });
 
         if (totalForms >= limit.maxForms) {
           return res.status(403).json({
@@ -43,8 +42,6 @@ function checkPlanLimit(action) {
           });
         }
       }
-
-
 
       next();
     } catch (err) {
