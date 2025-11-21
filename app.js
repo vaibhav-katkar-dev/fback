@@ -116,21 +116,34 @@ const paymentRoutes = require("./routes/paymentRoutes");
 // JWT Middleware
 // --------------------
 function verifyToken(req, res, next) {
-  let token = req.headers["authorization"];
-  if (!token) return res.status(401).json({ msg: "No token provided" });
+  let token = null;
 
-  if (token.startsWith("Bearer ")) {
-    token = token.slice(7).trim();
+  // 1️⃣ Token from header (normal login)
+  if (req.headers.authorization?.startsWith("Bearer ")) {
+    token = req.headers.authorization.split(" ")[1];
+  }
+
+  // 2️⃣ Token from body (Google login)
+  if (!token && req.body?.token) {
+    token = req.body.token;
+  }
+
+  if (!token) {
+    return res.status(401).json({ msg: "No token provided" });
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    req.user = {
+      id: decoded.id,
+      email: decoded.email
+    };
     next();
   } catch (err) {
     return res.status(403).json({ msg: "Invalid token" });
   }
 }
+
 app.use("/api/forms",form);
 
 app.use("/api/forms",verifyToken,formRoutes);
